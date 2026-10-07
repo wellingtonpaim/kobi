@@ -10,6 +10,8 @@ O Kobi é um companheiro de trabalho para desenvolvedores, em forma de um robozi
 
 Windows, macOS e Linux (Wayland e X11), com instalação simples em cada sistema.
 
+Funciona em qualquer configuração de monitores: de um único monitor a vários, em qualquer disposição, com escalas e taxas de atualização diferentes, e se adapta quando monitores são ligados ou desligados.
+
 ## Funcionalidades
 
 ### Presença na tela

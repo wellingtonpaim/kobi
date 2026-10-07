@@ -9,7 +9,7 @@ O código precisa chegar à `main` sempre verificado: compilação, lint, fronte
 ## Decisão
 - **Branches:** `homologacao` recebe os commits do dia a dia; a `main` só recebe código por pull request vindo dela.
 - **PR automático:** a cada push na `homologacao`, o workflow `pr-homologacao.yml` abre um PR `homologacao → main`, se houver commits novos e nenhum PR aberto. Pushes seguintes entram no mesmo PR.
-- **Pipelines (`ci.yml`)**, rodando a cada push na `homologacao` e na `main` e em pull requests:
+- **Pipelines (`ci.yml`)**, rodando a cada push na `homologacao` e na `main` e em pull requests para a `homologacao`:
   - **TypeScript:** formatação, lint, compilação (checagem de tipos), fronteiras entre camadas, testes com **cobertura mínima de 90%** (linhas, comandos, funções e ramos).
   - **Python (voz):** Ruff, mypy, pytest com **cobertura mínima de 90%** e compilação do pacote.
   - **Padrão de commits:** todo commit novo segue Conventional Commits.
@@ -20,5 +20,5 @@ O código precisa chegar à `main` sempre verificado: compilação, lint, fronte
 ## Consequências
 - Nada chega à `main` sem passar pelos pipelines. Os mínimos de cobertura podem subir, mas não descer sem uma decisão nova.
 - Quando houver colaboradores, eles abrem PRs de branches próprias para a `homologacao`; os mesmos pipelines rodam no `pull_request`.
-- PRs abertos pelo token do Actions não disparam workflows de `pull_request`. Os pipelines do push na `homologacao` rodam no mesmo commit e valem como verificação do PR.
+- O PR `homologacao → main` não dispara a CI de novo: os pipelines do push na `homologacao` rodam no mesmo commit e valem como verificação do PR. Disparar também no `pull_request` duplicaria a execução e, por o PR ser aberto pelo bot, ela ficaria parada esperando aprovação manual.
 - Builds do app Electron por plataforma entram no pipeline quando `apps/desktop` existir (Fases 1 e 8).

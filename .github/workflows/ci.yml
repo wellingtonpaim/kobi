@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, homologacao]
   pull_request:
+    branches: [homologacao]
 
 permissions:
   contents: read
