@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Rect } from '../../src/presence/rect.js';
-import { rect } from './fixtures.js';
+import { rect } from '../../testing/index.js';
 
 describe('Rect', () => {
   it.each([
@@ -18,6 +18,7 @@ describe('Rect', () => {
 
     expect([r.right, r.bottom]).toEqual([100, 150]);
     expect(r.center).toEqual({ x: 0, y: 100 });
+    expect(r.topLeft).toEqual({ x: -100, y: 50 });
   });
 
   it('contains points from its top-left edge up to, but excluding, its bottom-right edge', () => {
@@ -55,6 +56,20 @@ describe('Rect', () => {
     expect(rect(950, -30, 100, 100).clampedInside(container)).toEqual(rect(900, 0, 100, 100));
     expect(rect(-50, 750, 100, 100).clampedInside(container)).toEqual(rect(0, 700, 100, 100));
     expect(rect(10, 10, 100, 100).clampedInside(container)).toEqual(rect(10, 10, 100, 100));
+  });
+
+  it('rests at the bottom-right corner of a container, keeping a margin', () => {
+    const container = rect(1920, 32, 1920, 1168);
+
+    expect(rect(0, 0, 300, 400).placedAtBottomRightOf(container, 24)).toEqual(
+      rect(3516, 776, 300, 400),
+    );
+  });
+
+  it('stays inside a container too small for the margin', () => {
+    expect(rect(0, 0, 300, 400).placedAtBottomRightOf(rect(0, 0, 310, 410), 24)).toEqual(
+      rect(0, 0, 300, 400),
+    );
   });
 
   it('is centered on an axis where it is larger than the container', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DisplayLayout } from '../../src/presence/display-layout.js';
-import { display, layout, rect, scenarios } from './fixtures.js';
+import { display, layout, rect, scenarios } from '../../testing/index.js';
 
 const kobiWindow = (x: number, y: number) => rect(x, y, 300, 400);
 
