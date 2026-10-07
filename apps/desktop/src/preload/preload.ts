@@ -1,10 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { CHANNELS, type CurrentDisplay, type KobiBridge, type ScreenPoint } from '../shared/api.js';
+import {
+  CHANNELS,
+  type CurrentDisplay,
+  type KobiBridge,
+  type Region,
+  type ScreenPoint,
+} from '../shared/api.js';
 
 const bridge: KobiBridge = {
   moveTo: (topLeft: ScreenPoint) => {
     ipcRenderer.send(CHANNELS.moveTo, topLeft);
+  },
+  setInteractiveRegion: (regions: readonly Region[]) => {
+    ipcRenderer.send(CHANNELS.setInteractiveRegion, regions);
   },
   dragStart: (cursor: ScreenPoint) => {
     ipcRenderer.send(CHANNELS.dragStart, cursor);

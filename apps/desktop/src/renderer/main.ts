@@ -2,6 +2,7 @@ import { KobiAvatar } from '@kobi/avatar';
 import { Flight, type Point } from '@kobi/domain';
 
 import type { CurrentDisplay, KobiBridge } from '../shared/api.js';
+import { HitSampler } from './hit-sampler.js';
 
 declare global {
   interface Window {
@@ -27,6 +28,11 @@ const fit = (): void => {
 };
 fit();
 window.addEventListener('resize', fit);
+
+// Clique atravessa fora do Kobi: só a área visível dele recebe o mouse.
+const hitSampler = new HitSampler(canvas, (regions) => {
+  window.kobi.setInteractiveRegion(regions);
+});
 
 // Arrastar com o botão esquerdo; girar com a rodinha; menu com o botão direito.
 canvas.addEventListener('pointerdown', (event) => {
@@ -116,6 +122,7 @@ const loop = (nowMs: number): void => {
   const renderStart = performance.now();
   avatar.render(now);
   frameTimes.push(performance.now() - renderStart);
+  hitSampler.update(nowMs, window.innerWidth, window.innerHeight, avatar.settled);
 
   if (nowMs - statsSince >= 1000) {
     const sorted = [...frameTimes].sort((a, b) => a - b);

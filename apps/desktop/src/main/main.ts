@@ -3,7 +3,13 @@ import { Rect } from '@kobi/domain';
 import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
 import path from 'node:path';
 
-import { CHANNELS, type CurrentDisplay, type ScreenPoint, type TourPlan } from '../shared/api.js';
+import {
+  CHANNELS,
+  type CurrentDisplay,
+  type Region,
+  type ScreenPoint,
+  type TourPlan,
+} from '../shared/api.js';
 import { ElectronDisplaySource } from './electron-display-source.js';
 import { X11OverlayWindow } from './x11-overlay-window.js';
 
@@ -60,6 +66,10 @@ const start = async (): Promise<void> => {
 
   displays.onChange(() => {
     keepVisible.execute().then(reportDisplay).catch(logFailure);
+  });
+
+  ipcMain.on(CHANNELS.setInteractiveRegion, (_, regions: Region[]) => {
+    overlay.setInteractiveRegion(regions).catch(logFailure);
   });
 
   let drag: { cursor: ScreenPoint; window: ScreenPoint } | undefined;

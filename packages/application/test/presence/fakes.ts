@@ -1,4 +1,4 @@
-import type { DisplayLayout, Point, Rect } from '@kobi/domain';
+import type { DisplayLayout, Point, Rect, RectProps } from '@kobi/domain';
 
 import type { DisplaySource } from '../../src/presence/display-source.js';
 import type { OverlayWindow } from '../../src/presence/overlay-window.js';
@@ -11,6 +11,13 @@ export class FakeOverlayWindow implements OverlayWindow {
   bounds(): Promise<Rect> {
     return Promise.resolve(this.current);
   }
+
+  setInteractiveRegion(regions: readonly RectProps[]): Promise<void> {
+    this.region = regions;
+    return Promise.resolve();
+  }
+
+  region: readonly RectProps[] = [];
 
   moveTo(topLeft: Point): Promise<void> {
     this.moves.push(topLeft);

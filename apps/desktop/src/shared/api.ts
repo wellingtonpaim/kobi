@@ -17,8 +17,16 @@ export interface TourPlan {
   readonly start: ScreenPoint;
 }
 
+export interface Region {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 export interface KobiBridge {
   moveTo(topLeft: ScreenPoint): void;
+  setInteractiveRegion(regions: readonly Region[]): void;
   dragStart(cursor: ScreenPoint): void;
   dragMove(cursor: ScreenPoint): void;
   dragEnd(): void;
@@ -31,6 +39,7 @@ export interface KobiBridge {
 
 export const CHANNELS = {
   moveTo: 'kobi:move-to',
+  setInteractiveRegion: 'kobi:set-interactive-region',
   dragStart: 'kobi:drag-start',
   dragMove: 'kobi:drag-move',
   dragEnd: 'kobi:drag-end',

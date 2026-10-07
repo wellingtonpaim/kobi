@@ -1,5 +1,5 @@
 import type { OverlayWindow } from '@kobi/application';
-import { type Point, Rect } from '@kobi/domain';
+import { type Point, Rect, type RectProps } from '@kobi/domain';
 import type { BrowserWindow } from 'electron';
 
 /**
@@ -27,6 +27,19 @@ export class X11OverlayWindow implements OverlayWindow {
       return Promise.reject(new Error(`invalid position (${String(x)}, ${String(y)})`));
     }
     this.window.setPosition(toPixel(x), toPixel(y));
+    return Promise.resolve();
+  }
+
+  /** Forma X11 da janela (extensão SHAPE): fora dela o clique vai para a janela de trás. */
+  setInteractiveRegion(regions: readonly RectProps[]): Promise<void> {
+    this.window.setShape(
+      regions.map((r) => ({
+        x: toPixel(r.x),
+        y: toPixel(r.y),
+        width: toPixel(r.width),
+        height: toPixel(r.height),
+      })),
+    );
     return Promise.resolve();
   }
 }
