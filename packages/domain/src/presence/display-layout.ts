@@ -55,13 +55,18 @@ export class DisplayLayout {
     return overlaps.bounds.intersectionArea(window) > 0 ? overlaps : this.nearestTo(window.center);
   }
 
+  /** O ponto está na área útil de algum monitor (fora de painéis, docks e vãos)? */
+  inWorkArea(point: Point): boolean {
+    return this.displays.some((d) => d.workArea.contains(point));
+  }
+
   /**
    * Mantém a janela onde está enquanto o centro dela estiver na área útil de algum
    * monitor; senão, traz para o monitor mais próximo (por exemplo, após desconectá-lo).
    */
   ensureVisible(window: Rect): Rect {
     const { center } = window;
-    if (this.displays.some((d) => d.workArea.contains(center))) return window;
+    if (this.inWorkArea(center)) return window;
     return window.clampedInside(this.nearestTo(center).workArea);
   }
 

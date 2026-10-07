@@ -8,3 +8,4 @@ export { Display, type DisplayProps, type InvalidDisplay } from './presence/disp
 export { DisplayLayout, type InvalidLayout } from './presence/display-layout.js';
 export { Rect, type InvalidRect, type Point, type RectProps } from './presence/rect.js';
 export { Flight, type FlightOptions } from './presence/flight.js';
+export { Glide, type GlideOptions } from './presence/glide.js';

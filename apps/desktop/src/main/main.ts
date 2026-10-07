@@ -1,4 +1,4 @@
-import { KeepKobiVisible, PlaceKobiOnStartup } from '@kobi/application';
+import { KeepKobiVisible, PlaceKobiOnStartup, PlanGlide } from '@kobi/application';
 import { Rect } from '@kobi/domain';
 import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
 import path from 'node:path';
@@ -7,6 +7,7 @@ import {
   CHANNELS,
   type CurrentDisplay,
   type Region,
+  type SampledPath,
   type ScreenPoint,
   type TourPlan,
 } from '../shared/api.js';
@@ -50,6 +51,7 @@ const start = async (): Promise<void> => {
   const overlay = new X11OverlayWindow(window);
   const displays = new ElectronDisplaySource(screen);
   const keepVisible = new KeepKobiVisible(overlay, displays);
+  const planGlide = new PlanGlide(overlay, displays);
 
   /** Informa à interface em que monitor o Kobi está (escala e taxa de atualização em uso). */
   const reportDisplay = (): void => {
@@ -96,6 +98,14 @@ const start = async (): Promise<void> => {
   ipcMain.handle(CHANNELS.planTour, (): TourPlan => {
     const [x = 0, y = 0] = window.getPosition();
     return { stops: displays.current().tour(), windowSize: WINDOW_SIZE, start: { x, y } };
+  });
+  ipcMain.handle(CHANNELS.planGlide, async (_, velocity: ScreenPoint): Promise<SampledPath> => {
+    const glide = await planGlide.execute(velocity);
+    const step = 1 / 120;
+    const points: ScreenPoint[] = [];
+    for (let t = 0; t < glide.duration; t += step) points.push(glide.positionAt(t));
+    points.push(glide.positionAt(glide.duration));
+    return { step, points };
   });
   ipcMain.on(CHANNELS.showMenu, () => {
     Menu.buildFromTemplate([

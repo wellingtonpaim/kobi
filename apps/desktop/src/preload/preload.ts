@@ -28,6 +28,8 @@ const bridge: KobiBridge = {
     ipcRenderer.send(CHANNELS.showMenu);
   },
   planTour: () => ipcRenderer.invoke(CHANNELS.planTour),
+  planGlide: (releaseVelocity: ScreenPoint) =>
+    ipcRenderer.invoke(CHANNELS.planGlide, releaseVelocity),
   onStartTour: (listener) =>
     ipcRenderer.on(CHANNELS.startTour, () => {
       listener();

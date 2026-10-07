@@ -69,6 +69,16 @@ describe('DisplayLayout', () => {
     });
   });
 
+  describe('usable area', () => {
+    it('counts points inside any work area, never under panels or in voids', () => {
+      const l = scenarios.reference();
+
+      expect(l.inWorkArea({ x: 100, y: 500 })).toBe(true);
+      expect(l.inWorkArea({ x: 2500, y: 10 })).toBe(false);
+      expect(l.inWorkArea({ x: 100, y: 50 })).toBe(false);
+    });
+  });
+
   describe('nearest display', () => {
     it.each([
       ['inside a display', scenarios.single, { x: 10, y: 10 }, 'laptop'],
