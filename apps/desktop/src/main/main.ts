@@ -30,6 +30,11 @@ const createWindow = (): BrowserWindow =>
     },
   });
 
+/** Falhas ao mover a janela não podem derrubar o app: ficam registradas e o Kobi segue. */
+const logFailure = (error: unknown): void => {
+  console.error('[kobi]', error);
+};
+
 /** Composition root: o único lugar que instancia adaptadores e os liga aos casos de uso. */
 const start = async (): Promise<void> => {
   const window = createWindow();
@@ -54,12 +59,12 @@ const start = async (): Promise<void> => {
   };
 
   displays.onChange(() => {
-    void keepVisible.execute().then(reportDisplay);
+    keepVisible.execute().then(reportDisplay).catch(logFailure);
   });
 
   let drag: { cursor: ScreenPoint; window: ScreenPoint } | undefined;
   ipcMain.on(CHANNELS.moveTo, (_, { x, y }: ScreenPoint) => {
-    void overlay.moveTo({ x, y });
+    overlay.moveTo({ x, y }).catch(logFailure);
   });
   ipcMain.on(CHANNELS.dragStart, (_, cursor: ScreenPoint) => {
     const [x = 0, y = 0] = window.getPosition();
@@ -67,14 +72,16 @@ const start = async (): Promise<void> => {
   });
   ipcMain.on(CHANNELS.dragMove, (_, cursor: ScreenPoint) => {
     if (!drag) return;
-    void overlay.moveTo({
-      x: drag.window.x + cursor.x - drag.cursor.x,
-      y: drag.window.y + cursor.y - drag.cursor.y,
-    });
+    overlay
+      .moveTo({
+        x: drag.window.x + cursor.x - drag.cursor.x,
+        y: drag.window.y + cursor.y - drag.cursor.y,
+      })
+      .catch(logFailure);
   });
   ipcMain.on(CHANNELS.dragEnd, () => {
     drag = undefined;
-    void keepVisible.execute().then(reportDisplay);
+    keepVisible.execute().then(reportDisplay).catch(logFailure);
   });
   ipcMain.handle(CHANNELS.planTour, (): TourPlan => {
     const [x = 0, y = 0] = window.getPosition();
