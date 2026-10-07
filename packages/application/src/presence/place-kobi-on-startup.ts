@@ -11,7 +11,8 @@ export class PlaceKobiOnStartup {
 
   async execute(): Promise<void> {
     const { workArea } = this.displays.current().primary;
-    const spot = (await this.window.bounds()).placedAtBottomRightOf(workArea, RESTING_MARGIN);
-    await this.window.moveTo(spot.topLeft);
+    const [bounds, body] = await Promise.all([this.window.bounds(), this.window.silhouette()]);
+    const spot = body.placedAtBottomRightOf(workArea, RESTING_MARGIN);
+    await this.window.moveTo({ x: bounds.x + spot.x - body.x, y: bounds.y + spot.y - body.y });
   }
 }

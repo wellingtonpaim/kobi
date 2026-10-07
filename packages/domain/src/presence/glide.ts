@@ -1,5 +1,5 @@
 import type { DisplayLayout } from './display-layout.js';
-import type { Point } from './rect.js';
+import { type Point, Rect, type RectProps } from './rect.js';
 
 export interface GlideOptions {
   /** Resistência do ar, por segundo: a velocidade cai pela metade a cada ln(2)/k segundos. */
@@ -23,8 +23,8 @@ const MAX_DURATION = 15;
 /**
  * Deslizamento depois de um arremesso: a resistência do ar é proporcional à
  * velocidade, então ela cai exponencialmente e a distância percorrida é
- * velocidade ÷ resistência. O centro do Kobi nunca sai da área útil dos
- * monitores; ao bater numa borda, ele quica perdendo energia.
+ * velocidade ÷ resistência. A silhueta do Kobi nunca sai das telas; ao bater
+ * numa borda, ele encosta nela e quica, perdendo energia.
  *
  * O trajeto é calculado uma vez, em passos fixos, e depois só lido: o resultado
  * não depende da taxa de quadros.
@@ -44,11 +44,12 @@ export class Glide {
   /**
    * @param start canto superior esquerdo da janela do Kobi ao ser solto
    * @param velocity velocidade de saída, em px/s
+   * @param body silhueta visível do Kobi, relativa ao canto da janela
    */
   static launch(
     start: Point,
     velocity: Point,
-    windowSize: { readonly width: number; readonly height: number },
+    body: RectProps,
     layout: DisplayLayout,
     options: Partial<GlideOptions> = {},
   ): Glide {
@@ -61,9 +62,29 @@ export class Glide {
     const launchSpeed = Math.hypot(velocity.x, velocity.y);
     if (launchSpeed < restSpeed) return new Glide([start], [{ x: 0, y: 0 }]);
 
-    const cap = Math.min(1, maxLaunchSpeed / launchSpeed);
+    const silhouette = Rect.create(body);
+    if (!silhouette.ok) return new Glide([start], [{ x: 0, y: 0 }]);
     const usable = (x: number, y: number): boolean =>
-      layout.inWorkArea({ x: x + windowSize.width / 2, y: y + windowSize.height / 2 });
+      layout.onScreen(silhouette.value.movedTo({ x: x + body.x, y: y + body.y }));
+    if (!usable(start.x, start.y)) return new Glide([start], [{ x: 0, y: 0 }]);
+
+    const cap = Math.min(1, maxLaunchSpeed / launchSpeed);
+    /** Anda o máximo possível do passo sem sair da tela: encosta exatamente na borda. */
+    const advance = (
+      from: number,
+      delta: number,
+      fits: (to: number) => boolean,
+    ): [number, boolean] => {
+      if (fits(from + delta)) return [from + delta, false];
+      let lo = 0;
+      let hi = 1;
+      for (let i = 0; i < 16; i++) {
+        const mid = (lo + hi) / 2;
+        if (fits(from + delta * mid)) lo = mid;
+        else hi = mid;
+      }
+      return [from + delta * lo, true];
+    };
 
     const decay = Math.exp(-k * STEP);
     /** Deslocamento exato de um passo com velocidade decaindo exponencialmente. */
@@ -75,10 +96,12 @@ export class Glide {
     const velocities: Point[] = [{ x: vx, y: vy }];
 
     for (let t = 0; Math.hypot(vx, vy) >= restSpeed && t < MAX_DURATION; t += STEP) {
-      if (usable(x + vx * reach, y)) x += vx * reach;
-      else vx = -vx * restitution;
-      if (usable(x, y + vy * reach)) y += vy * reach;
-      else vy = -vy * restitution;
+      const [nx, hitX] = advance(x, vx * reach, (to) => usable(to, y));
+      x = nx;
+      if (hitX) vx = -vx * restitution;
+      const [ny, hitY] = advance(y, vy * reach, (to) => usable(x, to));
+      y = ny;
+      if (hitY) vy = -vy * restitution;
       vx *= decay;
       vy *= decay;
       positions.push({ x, y });

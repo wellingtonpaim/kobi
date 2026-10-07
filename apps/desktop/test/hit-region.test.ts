@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { hitRegion } from '../src/renderer/hit-region.js';
+import { hitRegion, opaqueBounds } from '../src/renderer/hit-region.js';
 
 /** Monta uma máscara RGBA a partir de linhas de texto: '#' é pixel visível, '.' transparente. */
 const mask = (...rows: string[]): { data: Uint8ClampedArray; width: number; height: number } => {
@@ -55,5 +55,28 @@ describe('hitRegion', () => {
     const { data, width, height } = mask('...', '...');
 
     expect(hitRegion(data, width, height, options)).toEqual([{ x: 0, y: 0, width: 1, height: 1 }]);
+  });
+});
+
+describe('opaqueBounds', () => {
+  const opts = { cellSize: 4, alphaThreshold: 128 };
+
+  it('finds where the Kobi is solid, in CSS pixels', () => {
+    const { data, width, height } = mask('.....', '.##..', '.###.', '.....');
+
+    expect(opaqueBounds(data, width, height, opts)).toEqual({ x: 4, y: 4, width: 12, height: 8 });
+  });
+
+  it('ignores translucent pixels like the shadow and the dust', () => {
+    const { data, width, height } = mask('.#.', '###');
+    for (let i = 3; i < 4 * 3; i += 4) data[i + 12] = 100;
+
+    expect(opaqueBounds(data, width, height, opts)).toEqual({ x: 4, y: 0, width: 4, height: 4 });
+  });
+
+  it('has no bounds when nothing is solid', () => {
+    const { data, width, height } = mask('...');
+
+    expect(opaqueBounds(data, width, height, opts)).toBeUndefined();
   });
 });

@@ -28,6 +28,9 @@ const createWindow = (): BrowserWindow =>
     hasShadow: false,
     alwaysOnTop: true,
     skipTaskbar: true,
+    // Estratégia A (X11): como "dock", o GNOME não força a janela a ficar inteira na
+    // tela, e o Kobi chega até a borda real de cada monitor (medido no spike).
+    type: 'dock',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -70,6 +73,9 @@ const start = async (): Promise<void> => {
     keepVisible.execute().then(reportDisplay).catch(logFailure);
   });
 
+  ipcMain.on(CHANNELS.setSilhouette, (_, silhouette: Region) => {
+    overlay.reportSilhouette(silhouette);
+  });
   ipcMain.on(CHANNELS.setInteractiveRegion, (_, regions: Region[]) => {
     overlay.setInteractiveRegion(regions).catch(logFailure);
   });

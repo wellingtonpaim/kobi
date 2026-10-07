@@ -33,6 +33,8 @@ export interface Region {
 export interface KobiBridge {
   moveTo(topLeft: ScreenPoint): void;
   setInteractiveRegion(regions: readonly Region[]): void;
+  /** Onde o Kobi aparece dentro da janela; é o que deve caber na tela. */
+  setSilhouette(silhouette: Region): void;
   dragStart(cursor: ScreenPoint): void;
   dragMove(cursor: ScreenPoint): void;
   dragEnd(): void;
@@ -48,6 +50,7 @@ export interface KobiBridge {
 export const CHANNELS = {
   moveTo: 'kobi:move-to',
   setInteractiveRegion: 'kobi:set-interactive-region',
+  setSilhouette: 'kobi:set-silhouette',
   dragStart: 'kobi:drag-start',
   dragMove: 'kobi:drag-move',
   dragEnd: 'kobi:drag-end',

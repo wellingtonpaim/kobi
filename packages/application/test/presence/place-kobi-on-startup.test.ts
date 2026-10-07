@@ -5,7 +5,7 @@ import { layout, rect, display } from '@kobi/domain/testing';
 import { FakeDisplaySource, FakeOverlayWindow } from './fakes.js';
 
 describe('PlaceKobiOnStartup', () => {
-  it('rests the Kobi at the bottom-right of the primary work area, wherever it is', async () => {
+  it('rests the visible Kobi at the bottom-right of the primary work area, wherever it is', async () => {
     const window = new FakeOverlayWindow(rect(0, 0, 300, 400));
     const displays = new FakeDisplaySource(
       layout(
@@ -21,6 +21,7 @@ describe('PlaceKobiOnStartup', () => {
 
     await new PlaceKobiOnStartup(window, displays).execute();
 
-    expect(window.moves).toEqual([{ x: 1596, y: 776 }]);
+    // A silhueta (80, 40, 140×300 dentro da janela) fica a 24 px do canto da área útil.
+    expect(window.moves).toEqual([{ x: 1676, y: 836 }]);
   });
 });

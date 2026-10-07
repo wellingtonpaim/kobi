@@ -31,9 +31,15 @@ const fit = (): void => {
 fit();
 window.addEventListener('resize', fit);
 
-// Clique atravessa fora do Kobi: só a área visível dele recebe o mouse.
-const hitSampler = new HitSampler(canvas, (regions) => {
-  window.kobi.setInteractiveRegion(regions);
+// Clique atravessa fora do Kobi (só a área visível dele recebe o mouse), e o processo
+// principal sabe onde o Kobi é sólido, para ele chegar até a borda real das telas.
+const hitSampler = new HitSampler(canvas, {
+  region: (regions) => {
+    window.kobi.setInteractiveRegion(regions);
+  },
+  silhouette: (silhouette) => {
+    window.kobi.setSilhouette(silhouette);
+  },
 });
 
 /** Movimento que a janela está seguindo agora (voo do passeio ou deslizamento). */

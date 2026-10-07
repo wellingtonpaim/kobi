@@ -11,7 +11,13 @@ export class PlanGlide {
   ) {}
 
   async execute(releaseVelocity: Point): Promise<Glide> {
-    const bounds = await this.window.bounds();
-    return Glide.launch(bounds.topLeft, releaseVelocity, bounds, this.displays.current());
+    const [bounds, body] = await Promise.all([this.window.bounds(), this.window.silhouette()]);
+    const offset = {
+      x: body.x - bounds.x,
+      y: body.y - bounds.y,
+      width: body.width,
+      height: body.height,
+    };
+    return Glide.launch(bounds.topLeft, releaseVelocity, offset, this.displays.current());
   }
 }

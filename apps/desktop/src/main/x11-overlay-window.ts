@@ -13,7 +13,28 @@ const toPixel = (value: number): number => Math.round(value) + 0;
  * No X11 a janela sabe a própria posição e pode se mover sozinha.
  */
 export class X11OverlayWindow implements OverlayWindow {
+  /** Silhueta do Kobi relativa à janela; até a interface informar, vale a janela inteira. */
+  private silhouetteOffset: RectProps | undefined;
+
   constructor(private readonly window: BrowserWindow) {}
+
+  reportSilhouette(offset: RectProps): void {
+    this.silhouetteOffset = offset;
+  }
+
+  silhouette(): Promise<Rect> {
+    const { x, y, width, height } = this.window.getBounds();
+    const offset = this.silhouetteOffset ?? { x: 0, y: 0, width, height };
+    const result = Rect.create({
+      x: x + offset.x,
+      y: y + offset.y,
+      width: offset.width,
+      height: offset.height,
+    });
+    return result.ok
+      ? Promise.resolve(result.value)
+      : Promise.reject(new Error('Kobi has no silhouette'));
+  }
 
   bounds(): Promise<Rect> {
     const result = Rect.create(this.window.getBounds());

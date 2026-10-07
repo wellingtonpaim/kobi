@@ -15,6 +15,9 @@ const bridge: KobiBridge = {
   setInteractiveRegion: (regions: readonly Region[]) => {
     ipcRenderer.send(CHANNELS.setInteractiveRegion, regions);
   },
+  setSilhouette: (silhouette: Region) => {
+    ipcRenderer.send(CHANNELS.setSilhouette, silhouette);
+  },
   dragStart: (cursor: ScreenPoint) => {
     ipcRenderer.send(CHANNELS.dragStart, cursor);
   },

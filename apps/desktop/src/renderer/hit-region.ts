@@ -74,3 +74,35 @@ export const hitRegion = (
     }))
     .sort((a, b) => a.y - b.y || a.x - b.x);
 };
+
+/**
+ * Onde o Kobi é sólido (cabeça, antena, braços e corpo), em pixels CSS. A sombra e
+ * a poeira são translúcidas e ficam de fora. É o que deve caber na tela.
+ */
+export const opaqueBounds = (
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  { cellSize, alphaThreshold }: Omit<HitRegionOptions, 'margin'>,
+): Region | undefined => {
+  let left = width;
+  let top = height;
+  let right = -1;
+  let bottom = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if ((rgba[(y * width + x) * 4 + 3] ?? 0) <= alphaThreshold) continue;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+    }
+  }
+  if (right < 0) return undefined;
+  return {
+    x: left * cellSize,
+    y: top * cellSize,
+    width: (right - left + 1) * cellSize,
+    height: (bottom - top + 1) * cellSize,
+  };
+};
