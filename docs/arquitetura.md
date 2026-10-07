@@ -9,9 +9,10 @@ Proposta inicial, a ser refinada nas specs de cada fase. Segue Clean Architectur
 │                                                                                    │
 │  Palco (main process)          Personagem (renderer)          Interface (renderer) │
 │  - janela overlay transparente - avatar three.js              - menu rápido        │
-│  - click-through por região    - animações, flutuação         - balão / campo texto│
-│  - multi-monitor, arrastar     - expressões no display        - configurações      │
-│  - bandeja, atalhos            - supersampling                - i18n               │
+│  - click-through por região    - rig: cabeça, braços, corpo   - balão / campo texto│
+│  - multi-monitor, arrastar     - comportamentos em camadas    - configurações      │
+│  - bandeja, atalhos            - expressões no display        - i18n               │
+│                                - supersampling                                     │
 │                                                                                    │
 │  Cérebro (utility process / main) — domínio + casos de uso                         │
 │  - personalidade        - agendador de iniciativa     - orçamento (limites de uso) │
@@ -40,6 +41,7 @@ Proposta inicial, a ser refinada nas specs de cada fase. Segue Clean Architectur
 
 ## Princípios de implementação
 
+- **Motor de comportamentos do avatar:** cada comportamento (ocioso, pensando, chamando atenção, entediado...) é um dado que combina gesto do corpo, olhar da cabeça, expressão do display e efeitos. O motor mistura camadas (pose base, gesto, olhar, locomoção, flutuação) com transições suaves e escolhe variações para não repetir. O cérebro decide **qual** comportamento e com que intensidade (personalidade e contexto); o avatar só sabe **como** desenhá-lo.
 - **Renderização nunca bloqueia:** o loop do three.js roda independente; IA, voz e disco são assíncronos com streaming.
 - **Roteador local-first:** cada pedido do usuário passa por: (1) skills/comandos locais e memória → (2) modelo local, se configurado → (3) IA na nuvem, respeitando permissão e orçamento.
 - **Porta `LlmProvider`:** interface única (`complete`, `stream`, `search`, uso de tokens/custo). Um adaptador por provedor. CLIs entram por um adaptador genérico com perfis por ferramenta (comando, flags de só-pesquisa, parser da saída).

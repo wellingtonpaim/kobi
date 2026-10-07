@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kobi — avatar (three.js 0.186)</title>
+    <link rel="stylesheet" href="./prototype.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Kobi — avatar portado (three.js 0.186)</h1>
+      <div id="wrap"><canvas id="view" aria-label="Kobi flutuando e acenando"></canvas></div>
+      <div class="controls">
+        <span class="label">LEDs</span>
+        <button data-led="#1e90ff"><span class="sw" style="background: #1e90ff"></span>Azul</button>
+        <button data-led="#00ff6a">
+          <span class="sw" style="background: #00ff6a"></span>Verde
+        </button>
+        <button data-led="#ff9f00">
+          <span class="sw" style="background: #ff9f00"></span>Âmbar
+        </button>
+        <button data-led="#ff1fa0"><span class="sw" style="background: #ff1fa0"></span>Rosa</button>
+        <span class="label">Corpo</span>
+        <button data-body="light">Cinza claro</button>
+        <button data-body="dark">Chumbo</button>
+      </div>
+      <p class="hint">Arraste para girar o robô</p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

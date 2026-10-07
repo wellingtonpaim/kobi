@@ -18,6 +18,7 @@ Fases sugeridas. Cada fase começa com specs em `docs/specs/` e termina com algo
 - Menu rápido (duplo clique no peito) e bandeja do sistema.
 - Modo texto com balão e campo, conversando com um provedor (chave de API ou Ollama).
 - Não Perturbe manual, configurações básicas, memória local inicial.
+- Primeiros passos da linguagem corporal: rig com cabeça articulada no pescoço e braços nos ombros, e variedade ociosa (braços em repouso, acenar com um ou outro braço, olhar em volta), para o Kobi não ficar repetindo o mesmo gesto.
 
 ## Fase 3 — Voz
 - Serviço Python: apertar para falar, transcrição (Whisper), fala (Piper/Kokoro) com efeito de voz do Kobi.
@@ -37,6 +38,8 @@ Fases sugeridas. Cada fase começa com specs em `docs/specs/` e termina com algo
 
 ## Fase 6 — Expressões e comportamento
 - Motor de expressões do display (shader SDF, camadas de olhos/boca/efeitos, transições) e catálogo inicial de ~40 expressões com intensidades; galeria de expressões. Expressões básicas (feliz, ouvindo, falando, pensando) já entram no MVP.
+- Linguagem corporal completa (`docs/design-visual.md`): motor de comportamentos em camadas, catálogo de gestos e poses como dados (pensando, chamando atenção com pulinhos e olhos arregalados, entediado sentado segurando a cabeça com suspiros...), sincronizado com o display. Meta: 700 ou mais comportamentos distintos somando display e corpo.
+- Expressões ricas dos olhos: arregalados, marejados com lágrima prestes a cair, choro com lágrimas saltando para os lados.
 - Teimosia e reações; física ao soltar; saída física sempre obedece.
 - Modo Fantasminha em cada plataforma; Não Perturbe automático.
 
