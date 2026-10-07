@@ -1,0 +1,42 @@
+name: PR automático (homologacao → main)
+
+on:
+  push:
+    branches: [homologacao]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-homologacao
+
+jobs:
+  open-pr:
+    name: Abrir PR para a main
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Abrir PR se houver mudanças e nenhum PR aberto
+        run: |
+          ahead=$(gh api "repos/$REPO/compare/main...homologacao" --jq .ahead_by)
+          if [ "$ahead" = "0" ]; then
+            echo "homologacao não tem commits novos em relação à main."
+            exit 0
+          fi
+
+          open=$(gh pr list --repo "$REPO" --base main --head homologacao --state open --json number --jq length)
+          if [ "$open" != "0" ]; then
+            echo "Já existe um PR aberto; o push novo entra nele automaticamente."
+            exit 0
+          fi
+
+          gh pr create --repo "$REPO" --base main --head homologacao \
+            --title "chore: promove homologacao para main" \
+            --body "PR aberto automaticamente a cada push na \`homologacao\`.
+
+          O merge na \`main\` só é liberado quando todos os pipelines passarem: **TypeScript**, **Python (voz)** e **Padrão de commits**.
+
+          Use **Create a merge commit** (squash e rebase estão desativados para a \`homologacao\` não divergir da \`main\`)."

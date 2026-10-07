@@ -38,6 +38,10 @@ describe('LanguageCode', () => {
     expect(valid('pt').equals(valid('en'))).toBe(false);
   });
 
+  it('is written as its base language', () => {
+    expect(String(valid('es-419'))).toBe('es');
+  });
+
   it('lists the supported languages', () => {
     expect(LanguageCode.supported).toEqual(['pt', 'en', 'es', 'fr']);
   });
