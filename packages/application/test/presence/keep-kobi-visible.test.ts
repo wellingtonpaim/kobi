@@ -32,7 +32,8 @@ describe('KeepKobiVisible', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(window.moves).toEqual([{ x: 3540, y: 500 }]);
+    // A silhueta encosta na borda direita do notebook (3840).
+    expect(window.moves).toEqual([{ x: 3620, y: 500 }]);
   });
 
   it('rescues a Kobi dropped in the gap between monitors', async () => {
@@ -40,6 +41,7 @@ describe('KeepKobiVisible', () => {
 
     await new KeepKobiVisible(window, new FakeDisplaySource(scenarios.gap())).execute();
 
-    expect(window.moves).toEqual([{ x: 2420, y: 100 }]);
+    // A silhueta encosta no começo do monitor da direita (2420).
+    expect(window.moves).toEqual([{ x: 2340, y: 100 }]);
   });
 });

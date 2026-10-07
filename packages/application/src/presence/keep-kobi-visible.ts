@@ -9,8 +9,10 @@ export class KeepKobiVisible {
   ) {}
 
   async execute(): Promise<void> {
-    const bounds = await this.window.bounds();
-    const visible = this.displays.current().ensureVisible(bounds);
-    if (visible.x !== bounds.x || visible.y !== bounds.y) await this.window.moveTo(visible.topLeft);
+    const [bounds, body] = await Promise.all([this.window.bounds(), this.window.silhouette()]);
+    const target = this.displays.current().keepOnScreen(body);
+    const dx = target.x - body.x;
+    const dy = target.y - body.y;
+    if (dx !== 0 || dy !== 0) await this.window.moveTo({ x: bounds.x + dx, y: bounds.y + dy });
   }
 }

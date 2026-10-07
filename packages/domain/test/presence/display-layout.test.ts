@@ -99,25 +99,43 @@ describe('DisplayLayout', () => {
     });
   });
 
-  describe('keeping the Kobi visible', () => {
-    it('leaves a visible window where it is, even partly past an edge', () => {
-      const atEdge = kobiWindow(1750, 100);
+  describe('keeping the Kobi on screen', () => {
+    /** Silhueta visível do Kobi (sem margens transparentes nem sombra). */
+    const body = (x: number, y: number) => rect(x, y, 140, 300);
 
-      expect(scenarios.single().ensureVisible(atEdge)).toEqual(atEdge);
+    it.each([
+      ['touching the left edge of the leftmost monitor', body(0, 500)],
+      ['touching the right edge of the rightmost monitor', body(5760 - 140, 500)],
+      ['touching the top of a side monitor, which starts lower', body(300, 120)],
+      ['touching the bottom of the laptop', body(2500, 900)],
+      ['over the laptop top bar, since the Kobi floats above everything', body(2500, 0)],
+      ['half on one monitor, half on the next', body(1850, 500)],
+    ])('accepts the Kobi %s', (_, silhouette) => {
+      expect(scenarios.reference().onScreen(silhouette)).toBe(true);
     });
 
-    it('brings a window lost in a gap into the nearest monitor', () => {
-      expect(scenarios.gap().ensureVisible(kobiWindow(2050, 100))).toEqual(kobiWindow(2420, 100));
+    it.each([
+      ['past the left edge', body(-1, 500)],
+      ['in the void above a lower side monitor', body(300, 60)],
+      ['past the bottom', body(2500, 901)],
+      ['partly in the gap between monitors', body(1850, 500), scenarios.gap()],
+    ])('rejects the Kobi %s', (_, silhouette, l = scenarios.reference()) => {
+      expect(l.onScreen(silhouette)).toBe(false);
     });
 
-    it('respects the work area, keeping clear of panels and docks', () => {
-      const underTopBar = kobiWindow(2500, -300);
+    it('leaves the Kobi where it is while it is on screen', () => {
+      expect(scenarios.reference().keepOnScreen(body(0, 900))).toEqual(body(0, 900));
+    });
 
-      expect(scenarios.reference().ensureVisible(underTopBar)).toEqual(kobiWindow(2500, 32));
+    it('brings a Kobi lost in a gap into the nearest monitor', () => {
+      expect(scenarios.gap().keepOnScreen(body(2200, 100))).toEqual(body(2420, 100));
+    });
+
+    it('rests clear of panels when it has to be brought back', () => {
+      expect(scenarios.reference().keepOnScreen(body(2500, -200))).toEqual(body(2500, 32));
     });
 
     it('rescues the Kobi when the monitor it was on is disconnected', () => {
-      const onRightMonitor = kobiWindow(5000, 500);
       const afterUnplug = layout(
         display({ id: 'DVI-I-2', bounds: { x: 0, y: 120, width: 1920, height: 1080 } }),
         display({
@@ -127,15 +145,15 @@ describe('DisplayLayout', () => {
         }),
       );
 
-      expect(afterUnplug.ensureVisible(onRightMonitor)).toEqual(kobiWindow(3540, 500));
+      expect(afterUnplug.keepOnScreen(body(5000, 500))).toEqual(body(3840 - 140, 500));
     });
 
-    it('centers the Kobi on a monitor smaller than its window', () => {
+    it('centers the Kobi on a monitor smaller than it', () => {
       const tiny = layout(
-        display({ id: 'tiny', bounds: { x: 0, y: 0, width: 200, height: 300 }, primary: true }),
+        display({ id: 'tiny', bounds: { x: 0, y: 0, width: 100, height: 200 }, primary: true }),
       );
 
-      expect(tiny.ensureVisible(kobiWindow(900, 900))).toEqual(kobiWindow(-50, -50));
+      expect(tiny.keepOnScreen(body(900, 900))).toEqual(body(-20, -50));
     });
   });
 

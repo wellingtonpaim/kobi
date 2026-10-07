@@ -1,10 +1,22 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { CHANNELS, type CurrentDisplay, type KobiBridge, type ScreenPoint } from '../shared/api.js';
+import {
+  CHANNELS,
+  type CurrentDisplay,
+  type KobiBridge,
+  type Region,
+  type ScreenPoint,
+} from '../shared/api.js';
 
 const bridge: KobiBridge = {
   moveTo: (topLeft: ScreenPoint) => {
     ipcRenderer.send(CHANNELS.moveTo, topLeft);
+  },
+  setInteractiveRegion: (regions: readonly Region[]) => {
+    ipcRenderer.send(CHANNELS.setInteractiveRegion, regions);
+  },
+  setSilhouette: (silhouette: Region) => {
+    ipcRenderer.send(CHANNELS.setSilhouette, silhouette);
   },
   dragStart: (cursor: ScreenPoint) => {
     ipcRenderer.send(CHANNELS.dragStart, cursor);
@@ -19,6 +31,8 @@ const bridge: KobiBridge = {
     ipcRenderer.send(CHANNELS.showMenu);
   },
   planTour: () => ipcRenderer.invoke(CHANNELS.planTour),
+  planGlide: (releaseVelocity: ScreenPoint) =>
+    ipcRenderer.invoke(CHANNELS.planGlide, releaseVelocity),
   onStartTour: (listener) =>
     ipcRenderer.on(CHANNELS.startTour, () => {
       listener();

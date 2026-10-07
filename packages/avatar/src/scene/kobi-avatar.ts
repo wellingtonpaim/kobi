@@ -130,6 +130,16 @@ export class KobiAvatar {
     this.travelVelocity = velocity;
   }
 
+  /**
+   * Parado e sem poeira no ar: a imagem só muda devagar (flutuação, braços).
+   * Em movimento, a poeira pode surgir em qualquer ponto da janela a qualquer momento.
+   */
+  get settled(): boolean {
+    return (
+      Math.hypot(this.travelVelocity.x, this.travelVelocity.y) < 1 && this.dust.puffs.length === 0
+    );
+  }
+
   /** Gira o Kobi pelo arraste horizontal do usuário, em pixels. */
   turnBy(deltaPixels: number): void {
     this.targetTurn += deltaPixels * TURN_PER_PIXEL;

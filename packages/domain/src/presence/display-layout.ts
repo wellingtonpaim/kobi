@@ -56,13 +56,45 @@ export class DisplayLayout {
   }
 
   /**
-   * Mantém a janela onde está enquanto o centro dela estiver na área útil de algum
-   * monitor; senão, traz para o monitor mais próximo (por exemplo, após desconectá-lo).
+   * A área (por exemplo, a silhueta do Kobi) está inteira sobre alguma tela? Vale
+   * ficar entre dois monitores; não vale invadir vãos ou o vazio de monitores
+   * desalinhados. Usa a área física de cada monitor, até a borda.
    */
-  ensureVisible(window: Rect): Rect {
-    const { center } = window;
-    if (this.displays.some((d) => d.workArea.contains(center))) return window;
-    return window.clampedInside(this.nearestTo(center).workArea);
+  onScreen(area: Rect): boolean {
+    const cuts = (start: number, end: number, edges: number[]): number[] =>
+      [...new Set([start, end, ...edges.filter((e) => e > start && e < end)])].sort(
+        (a, b) => a - b,
+      );
+    const xs = cuts(
+      area.x,
+      area.right,
+      this.displays.flatMap((d) => [d.bounds.x, d.bounds.right]),
+    );
+    const ys = cuts(
+      area.y,
+      area.bottom,
+      this.displays.flatMap((d) => [d.bounds.y, d.bounds.bottom]),
+    );
+
+    for (let i = 0; i < xs.length - 1; i++) {
+      for (let j = 0; j < ys.length - 1; j++) {
+        const piece = {
+          x: ((xs[i] ?? 0) + (xs[i + 1] ?? 0)) / 2,
+          y: ((ys[j] ?? 0) + (ys[j + 1] ?? 0)) / 2,
+        };
+        if (!this.displays.some((d) => d.bounds.contains(piece))) return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Deixa o Kobi onde está enquanto estiver na tela; senão (num vão, após
+   * desconectar um monitor...), traz para a área útil do monitor mais próximo.
+   */
+  keepOnScreen(silhouette: Rect): Rect {
+    if (this.onScreen(silhouette)) return silhouette;
+    return silhouette.clampedInside(this.nearestTo(silhouette.center).workArea);
   }
 
   /** Centros das áreas úteis de todos os monitores, da esquerda para a direita e de cima para baixo. */

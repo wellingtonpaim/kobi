@@ -2,6 +2,9 @@ import { KobiAvatar } from '@kobi/avatar';
 import { Flight, type Point } from '@kobi/domain';
 
 import type { CurrentDisplay, KobiBridge } from '../shared/api.js';
+import { HitSampler } from './hit-sampler.js';
+import { ReleaseTracker } from './release-tracker.js';
+import { sampledTrajectory, type Trajectory } from './trajectory.js';
 
 declare global {
   interface Window {
@@ -28,24 +31,50 @@ const fit = (): void => {
 fit();
 window.addEventListener('resize', fit);
 
+// Clique atravessa fora do Kobi (só a área visível dele recebe o mouse), e o processo
+// principal sabe onde o Kobi é sólido, para ele chegar até a borda real das telas.
+const hitSampler = new HitSampler(canvas, {
+  region: (regions) => {
+    window.kobi.setInteractiveRegion(regions);
+  },
+  silhouette: (silhouette) => {
+    window.kobi.setSilhouette(silhouette);
+  },
+});
+
+/** Movimento que a janela está seguindo agora (voo do passeio ou deslizamento). */
+let motion: { readonly path: Trajectory; readonly startedAt: number } | undefined;
+let tour: Point[] = [];
+
 // Arrastar com o botão esquerdo; girar com a rodinha; menu com o botão direito.
+// Soltar com o mouse em movimento arremessa o Kobi (spec 0005); clicar durante o voo o pega.
+const release = new ReleaseTracker();
 canvas.addEventListener('pointerdown', (event) => {
   if (event.button !== 0) return;
   canvas.setPointerCapture(event.pointerId);
   canvas.style.cursor = 'grabbing';
   tour = [];
-  flight = undefined;
+  motion = undefined;
+  release.reset();
+  release.add({ x: event.screenX, y: event.screenY }, event.timeStamp);
   window.kobi.dragStart({ x: event.screenX, y: event.screenY });
 });
 canvas.addEventListener('pointermove', (event) => {
-  if (canvas.hasPointerCapture(event.pointerId))
-    window.kobi.dragMove({ x: event.screenX, y: event.screenY });
+  if (!canvas.hasPointerCapture(event.pointerId)) return;
+  for (const e of event.getCoalescedEvents())
+    release.add({ x: e.screenX, y: e.screenY }, e.timeStamp);
+  window.kobi.dragMove({ x: event.screenX, y: event.screenY });
 });
 const endDrag = (event: PointerEvent): void => {
   if (!canvas.hasPointerCapture(event.pointerId)) return;
   canvas.releasePointerCapture(event.pointerId);
   canvas.style.cursor = 'grab';
   window.kobi.dragEnd();
+  const throwVelocity = release.velocityAt(event.timeStamp);
+  if (throwVelocity.x === 0 && throwVelocity.y === 0) return;
+  void window.kobi.planGlide(throwVelocity).then((path) => {
+    motion = { path: sampledTrajectory(path), startedAt: performance.now() / 1000 };
+  });
 };
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
@@ -58,11 +87,9 @@ canvas.addEventListener('contextmenu', (event) => {
 });
 
 // Passeio de teste: percorre todos os monitores conectados, seja qual for a disposição.
-let flight: { readonly path: Flight; readonly startedAt: number } | undefined;
-let tour: Point[] = [];
 const flyNext = (now: number): void => {
   const next = tour.shift();
-  flight = next
+  motion = next
     ? { path: Flight.between({ x: window.screenX, y: window.screenY }, next), startedAt: now }
     : undefined;
 };
@@ -98,10 +125,10 @@ const loop = (nowMs: number): void => {
   const dt = Math.max(1e-3, (nowMs - lastFrame) / 1000);
   lastFrame = nowMs;
 
-  if (flight) {
-    const t = now - flight.startedAt;
-    window.kobi.moveTo(flight.path.positionAt(t));
-    if (t >= flight.path.duration) flyNext(now);
+  if (motion) {
+    const t = now - motion.startedAt;
+    window.kobi.moveTo(motion.path.positionAt(t));
+    if (t >= motion.path.duration) flyNext(now);
   }
 
   const position = { x: window.screenX, y: window.screenY };
@@ -116,6 +143,7 @@ const loop = (nowMs: number): void => {
   const renderStart = performance.now();
   avatar.render(now);
   frameTimes.push(performance.now() - renderStart);
+  hitSampler.update(nowMs, window.innerWidth, window.innerHeight, avatar.settled);
 
   if (nowMs - statsSince >= 1000) {
     const sorted = [...frameTimes].sort((a, b) => a - b);

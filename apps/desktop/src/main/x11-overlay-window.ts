@@ -1,5 +1,5 @@
 import type { OverlayWindow } from '@kobi/application';
-import { type Point, Rect } from '@kobi/domain';
+import { type Point, Rect, type RectProps } from '@kobi/domain';
 import type { BrowserWindow } from 'electron';
 
 /**
@@ -13,7 +13,28 @@ const toPixel = (value: number): number => Math.round(value) + 0;
  * No X11 a janela sabe a própria posição e pode se mover sozinha.
  */
 export class X11OverlayWindow implements OverlayWindow {
+  /** Silhueta do Kobi relativa à janela; até a interface informar, vale a janela inteira. */
+  private silhouetteOffset: RectProps | undefined;
+
   constructor(private readonly window: BrowserWindow) {}
+
+  reportSilhouette(offset: RectProps): void {
+    this.silhouetteOffset = offset;
+  }
+
+  silhouette(): Promise<Rect> {
+    const { x, y, width, height } = this.window.getBounds();
+    const offset = this.silhouetteOffset ?? { x: 0, y: 0, width, height };
+    const result = Rect.create({
+      x: x + offset.x,
+      y: y + offset.y,
+      width: offset.width,
+      height: offset.height,
+    });
+    return result.ok
+      ? Promise.resolve(result.value)
+      : Promise.reject(new Error('Kobi has no silhouette'));
+  }
 
   bounds(): Promise<Rect> {
     const result = Rect.create(this.window.getBounds());
@@ -27,6 +48,19 @@ export class X11OverlayWindow implements OverlayWindow {
       return Promise.reject(new Error(`invalid position (${String(x)}, ${String(y)})`));
     }
     this.window.setPosition(toPixel(x), toPixel(y));
+    return Promise.resolve();
+  }
+
+  /** Forma X11 da janela (extensão SHAPE): fora dela o clique vai para a janela de trás. */
+  setInteractiveRegion(regions: readonly RectProps[]): Promise<void> {
+    this.window.setShape(
+      regions.map((r) => ({
+        x: toPixel(r.x),
+        y: toPixel(r.y),
+        width: toPixel(r.width),
+        height: toPixel(r.height),
+      })),
+    );
     return Promise.resolve();
   }
 }

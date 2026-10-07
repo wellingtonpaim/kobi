@@ -221,7 +221,9 @@ export const buildKobi = (
   right.position.y = 0.42;
 
   // Fone de ouvido e antena
-  const band = add(new THREE.Mesh(new THREE.TorusGeometry(1.24, 0.09, 32, 192, Math.PI), headset));
+  // Alça com o dobro da espessura da v6 (aprovado em 2026-10-07): apoia no topo da cabeça
+  // como um fone de verdade, e as pontas continuam encaixadas nas conchas.
+  const band = add(new THREE.Mesh(new THREE.TorusGeometry(1.24, 0.18, 32, 192, Math.PI), headset));
   band.position.y = 0.98;
   band.scale.y = 0.86;
   for (const side of [-1, 1]) {
@@ -235,8 +237,9 @@ export const buildKobi = (
     cap.rotation.z = Math.PI / 2;
     cap.position.set(side * 1.36, 0.95, 0);
   }
-  add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.3, 32), headset)).position.y = 2.2;
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 64, 64), led), robot, false).position.y = 2.4;
+  // Antena acima da alça (subiu junto com a alça mais grossa, mantendo a mesma haste visível).
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.3, 32), headset)).position.y = 2.28;
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 64, 64), led), robot, false).position.y = 2.48;
 
   // Sombra no chão
   const shadow = new THREE.Mesh(
