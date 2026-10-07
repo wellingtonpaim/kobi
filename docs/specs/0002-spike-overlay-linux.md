@@ -132,3 +132,27 @@ Para cada estratégia, registrar numa tabela no ADR, por caso da matriz testado:
 
 ## Desempenho
 Esta spec é, ela própria, a primeira medição real do orçamento de `docs/performance.md`. Os números obtidos substituem as metas iniciais onde fizer sentido, registrados no ADR.
+
+## Andamento (atualizado em 2026-10-07)
+
+### Feito
+- **Domínio (Presença):** `Rect`, `Display`, `DisplayLayout` (monitor sob um ponto, mais próximo, o que contém a janela, `onScreen`/`keepOnScreen` pela silhueta, passeio), `Flight` (voo, spec 0004) e `Glide` (arremesso, spec 0005). Testes cobrem a matriz de monitores (`@kobi/domain/testing`).
+- **Aplicação:** portas `OverlayWindow` (posição, silhueta, região interativa) e `DisplaySource`; casos de uso `PlaceKobiOnStartup`, `KeepKobiVisible`, `PlanGlide`.
+- **Avatar:** v6 portado para three.js 0.186, idêntico ao protótipo (diferença média < 1/255, `packages/avatar/dev/capture.ts`); cores do corpo, giro, pêndulo e poeira (spec 0004); alça do fone com o dobro da espessura.
+- **Estratégia A (XWayland) implementada** em `apps/desktop`: janela transparente sempre acima em todas as áreas de trabalho, arrastar, girar (rodinha), menu (passeio de teste, diagnóstico, sair), arremesso, resgate após hotplug, clique atravessando fora do Kobi.
+
+### Descobertas da estratégia A (entram no ADR)
+- **Mutter restringe janelas X11 comuns:** mantém o retângulo inteiro dentro da faixa vertical de *todos* os monitores (0–1200 no ambiente de referência), não da altura de cada um. Medido com janelas de teste. Só o tipo **`dock`** fica livre; `toolbar`, `notification` e `splash` são restringidos como as comuns. O app usa `dock`. A verificar: foco de teclado em janelas `dock` (necessário para o modo texto).
+- **`setShape` do Electron no X11 recorta o desenho (forma *bounding*), não só o mouse.** Por isso, em movimento ou com poeira no ar a janela inteira fica ativa; parado, a forma justa (≈30% da janela) deixa o clique atravessar. Comparar com a região de entrada do Wayland (estratégia B), que pode ser separada do desenho.
+- **`setPosition` recusa −0** (não é inteiro de 32 bits no V8): posições passam por `Math.round(v) + 0`.
+- Terminais do VS Code herdam `ELECTRON_RUN_AS_NODE=1`; o `scripts/start.mjs` remove.
+- Hipóteses 1 (fundo transparente) e 3 (clique atravessando) confirmadas pelo Wellington; travessia entre os três monitores, incluindo o DisplayLink, funcionando.
+
+### Falta
+1. **Fechar a estratégia A:** observações do Wellington sobre a hipótese 2 (por cima de janela maximizada, da Visão geral e de app em tela cheia) e fps do diagnóstico nos monitores de 60 Hz e 100 Hz; medir CPU/GPU/memória (tabela "Medições"); casos da matriz ainda não testados (escala fracionária, monitor único, hotplug).
+2. **Estratégia B:** Electron nativo no Wayland (`KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop start`) + extensão GNOME mínima em `extensions/gnome/` (GPL-2.0-or-later, D-Bus), implementando a porta `OverlayWindow`.
+3. **Comparar** as duas com a mesma tabela de medições e escrever o **ADR da estratégia de overlay no Linux**.
+
+### Como rodar
+- App: `pnpm --filter @kobi/desktop start` (estratégia A por padrão).
+- Página do avatar, comparação com o v6 e playground de movimento: `pnpm --filter @kobi/avatar dev` → `http://localhost:5173/compare.html` e `/playground.html`.
