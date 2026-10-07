@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kobi — movimento</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #e9ebee;
+        font-family: system-ui, sans-serif;
+        color: #23262b;
+      }
+      #kobi {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 300px;
+        height: 400px;
+        pointer-events: none;
+        will-change: transform;
+      }
+      #kobi canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #target {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        margin: -5px 0 0 -5px;
+        border-radius: 50%;
+        background: #1e90ff;
+        opacity: 0.6;
+        display: none;
+      }
+      .panel {
+        position: absolute;
+        left: 16px;
+        top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        max-width: calc(100% - 32px);
+        font-size: 0.85rem;
+      }
+      .panel button {
+        font: inherit;
+        border: 1px solid #c9cdd3;
+        background: #f4f5f7;
+        border-radius: 999px;
+        padding: 4px 12px;
+        cursor: pointer;
+      }
+      #stats {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        font:
+          0.8rem ui-monospace,
+          monospace;
+        color: #5d636c;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <strong>Clique em qualquer lugar para o Kobi voar até lá.</strong>
+      <span>Velocidade:</span>
+      <span id="speeds"></span>
+      <span>Corpo:</span>
+      <span id="bodies"></span>
+      <button id="tour">Passeio pelos cantos</button>
+    </div>
+    <div id="target"></div>
+    <div id="kobi"><canvas aria-label="Kobi"></canvas></div>
+    <div id="stats"></div>
+    <script type="module" src="./playground.ts"></script>
+  </body>
+</html>

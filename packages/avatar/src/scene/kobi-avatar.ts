@@ -2,9 +2,12 @@ import * as THREE from 'three';
 
 import { approach } from '../motion/approach.js';
 import { Blinker } from '../motion/blinker.js';
+import { Dust } from '../motion/dust.js';
 import { floatPose } from '../motion/float-pose.js';
 import { supersampleFactor } from '../motion/supersampling.js';
-import { buildKobi, type KobiModel } from './kobi-model.js';
+import { blendTurn, Pendulum, travelHeading, type Velocity } from '../motion/travel.js';
+import { DustView } from './dust-view.js';
+import { BASE_HEIGHT, buildKobi, type KobiModel } from './kobi-model.js';
 import type { BodyTone } from './palette.js';
 import { createRenderer, lightStudio, type Studio } from './studio.js';
 
@@ -38,6 +41,14 @@ export class KobiAvatar {
   private currentTurn = INITIAL_TURN;
   private dragging = false;
   private lastRenderAt: number | undefined;
+  private travelVelocity: Velocity = { x: 0, y: 0 };
+  private readonly pendulum: Pendulum;
+  private readonly leanAxis = new THREE.Vector3();
+  private readonly dust: Dust;
+  private readonly dustView: DustView;
+  /** Quanto um pixel CSS mede na cena, e a meia janela em unidades da cena. */
+  private worldPerPixel = 0;
+  private readonly halfView = { width: 0, height: 0 };
 
   constructor({ canvas, reducedMotion = false }: KobiAvatarOptions) {
     const output = canvas.getContext('2d');
@@ -45,6 +56,8 @@ export class KobiAvatar {
     this.output = output;
     this.reducedMotion = reducedMotion;
     this.blinker = new Blinker(Math.random, reducedMotion);
+    this.pendulum = new Pendulum(reducedMotion);
+    this.dust = new Dust(Math.random, reducedMotion);
     this.camera.position.set(0, 0.4, 11);
     this.camera.lookAt(0, 0.1, 0);
     this.studio = lightStudio(this.scene, this.renderer);
@@ -53,6 +66,7 @@ export class KobiAvatar {
       this.studio.environment,
       this.renderer.capabilities.getMaxAnisotropy(),
     );
+    this.dustView = new DustView(this.scene);
   }
 
   /** Tamanho em pixels CSS e a escala do monitor atual; chamar de novo ao mudar de monitor. */
@@ -65,6 +79,11 @@ export class KobiAvatar {
     this.camera.aspect = width / height;
     this.camera.fov = width / height < 1 ? 42 : 30;
     this.camera.updateProjectionMatrix();
+    const viewHeight =
+      2 * this.camera.position.z * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    this.worldPerPixel = viewHeight / height;
+    this.halfView.width = (viewHeight * this.camera.aspect) / 2;
+    this.halfView.height = viewHeight / 2;
     this.output.imageSmoothingEnabled = true;
     this.output.imageSmoothingQuality = 'high';
   }
@@ -74,22 +93,38 @@ export class KobiAvatar {
     this.lastRenderAt = elapsedSeconds;
 
     const pose = floatPose(elapsedSeconds, this.reducedMotion);
-    const { robot, eyes, wavingArm, restingArm, shadow } = this.model;
+    const { pivot, robot, eyes, wavingArm, restingArm, shadow } = this.model;
     const sway = this.dragging || this.reducedMotion ? 0 : pose.sway;
-    this.currentTurn = approach(this.currentTurn, this.targetTurn + sway, delta, TURN_SMOOTHING);
+    const heading = travelHeading(this.travelVelocity);
+    const turn = blendTurn(this.targetTurn + sway, heading.yaw, heading.weight);
+    this.currentTurn = approach(this.currentTurn, turn, delta, TURN_SMOOTHING);
+    const lean = this.pendulum.update(Math.abs(this.travelVelocity.x), delta);
 
-    robot.position.y = pose.bob;
+    // Inclina em torno do eixo lateral do próprio Kobi, seja qual for o lado para onde está virado.
+    this.leanAxis.set(Math.cos(this.currentTurn), 0, -Math.sin(this.currentTurn));
+    pivot.quaternion.setFromAxisAngle(this.leanAxis, lean);
+    robot.position.y = BASE_HEIGHT + pose.bob;
     robot.rotation.set(pose.pitch, this.currentTurn, pose.roll);
     wavingArm.rotation.z = pose.wavingArm;
     restingArm.rotation.z = pose.restingArm;
     eyes.scale.y = this.blinker.openness(elapsedSeconds);
     shadow.scale.set(pose.shadowScale, pose.shadowScale, 1);
     shadow.material.opacity = pose.shadowOpacity;
+    this.dust.update(this.travelVelocity, delta, this.worldPerPixel, this.halfView);
+    this.dustView.sync(this.dust.puffs);
 
     this.renderer.render(this.scene, this.camera);
     const { canvas } = this.output;
     this.output.clearRect(0, 0, canvas.width, canvas.height);
     this.output.drawImage(this.renderer.domElement, 0, 0, canvas.width, canvas.height);
+  }
+
+  /**
+   * Velocidade com que o Kobi está se deslocando na tela, em pixels CSS por
+   * segundo (y para baixo). Ele vira para onde vai e inclina como um pêndulo.
+   */
+  setTravelVelocity(velocity: Velocity): void {
+    this.travelVelocity = velocity;
   }
 
   /** Gira o Kobi pelo arraste horizontal do usuário, em pixels. */
@@ -112,6 +147,7 @@ export class KobiAvatar {
 
   dispose(): void {
     this.model.dispose();
+    this.dustView.dispose(this.scene);
     this.studio.dispose();
     this.renderer.dispose();
   }

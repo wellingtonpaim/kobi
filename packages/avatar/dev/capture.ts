@@ -17,7 +17,10 @@ const pages = {
 const gpu = ['--use-angle=vulkan', '--enable-features=Vulkan', '--ignore-gpu-blocklist'];
 const software = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'];
 const browser = await chromium.launch({ args: process.env.KOBI_CAPTURE_SOFTWARE ? software : gpu });
+// O protótipo só tem as cores de corpo originais; as novas são capturadas só na versão portada.
+const onlyPorted = body !== '' && !['light', 'dark'].includes(body);
 for (const [name, url] of Object.entries(pages)) {
+  if (onlyPorted && name === 'prototype') continue;
   const page = await browser.newPage({
     viewport: { width: 960, height: 900 },
     colorScheme: 'light',

@@ -22,6 +22,21 @@ document.querySelectorAll<HTMLButtonElement>('[data-led]').forEach((button) => {
     avatar.setLedColor(button.dataset.led ?? '#1e90ff');
   });
 });
+const NEW_BODY_TONES: readonly (readonly [BodyTone, string])[] = [
+  ['pink', 'Rosa'],
+  ['blue', 'Azul'],
+  ['green', 'Verde'],
+  ['brown', 'Marrom'],
+  ['amber', 'Âmbar'],
+];
+const controls = document.querySelector('.controls');
+for (const [tone, label] of NEW_BODY_TONES) {
+  const button = document.createElement('button');
+  button.dataset.body = tone;
+  button.textContent = label;
+  controls?.append(button);
+}
+
 document.querySelectorAll<HTMLButtonElement>('[data-body]').forEach((button) => {
   button.addEventListener('click', () => {
     avatar.setBodyTone(button.dataset.body as BodyTone);

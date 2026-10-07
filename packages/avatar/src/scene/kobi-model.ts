@@ -2,8 +2,13 @@ import * as THREE from 'three';
 
 import { BODY_TONES, type BodyTone, DEFAULT_LED_COLOR, VISOR_COLOR } from './palette.js';
 
+/** Altura da base do corpo em relação ao centro do robô: é o pivô da inclinação em pêndulo. */
+export const BASE_HEIGHT = 1.88;
+
 /** Partes animadas e materiais configuráveis do Kobi. */
 export interface KobiModel {
+  /** Fica na base do corpo; inclinar o pivô move a cabeça e mantém a base no lugar. */
+  readonly pivot: THREE.Group;
   readonly robot: THREE.Group;
   readonly eyes: THREE.Group;
   readonly wavingArm: THREE.Group;
@@ -135,8 +140,12 @@ export const buildKobi = (
   });
   const led = new THREE.MeshBasicMaterial({ color: DEFAULT_LED_COLOR, toneMapped: false });
 
+  const pivot = new THREE.Group();
+  pivot.position.y = -BASE_HEIGHT;
+  scene.add(pivot);
   const robot = new THREE.Group();
-  scene.add(robot);
+  robot.position.y = BASE_HEIGHT;
+  pivot.add(robot);
   const add = <T extends THREE.Mesh>(
     mesh: T,
     parent: THREE.Object3D = robot,
@@ -243,6 +252,7 @@ export const buildKobi = (
   scene.add(shadow);
 
   return {
+    pivot,
     robot,
     eyes,
     wavingArm,
@@ -277,7 +287,7 @@ export const buildKobi = (
       }
       release(noise);
       if (shadow.material.map) release(shadow.material.map);
-      scene.remove(robot, shadow);
+      scene.remove(pivot, shadow);
     },
   };
 };

@@ -215,6 +215,9 @@ importers:
         specifier: ^0.186.1
         version: 0.186.1
     devDependencies:
+      '@kobi/domain':
+        specifier: workspace:*
+        version: link:../domain
       '@types/three':
         specifier: ^0.186.0
         version: 0.186.0
