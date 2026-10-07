@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mascote — protótipo 3D aprovado (v6)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9ebee;--text:#23262b;--muted:#5d636c;--line:#c9cdd3;--btn:#f4f5f7;--btn-hover:#ffffff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17191c;--text:#e6e8eb;--muted:#9aa1ab;--line:#30343a;--btn:#202327;--btn-hover:#2a2e33}}
+:root[data-theme="dark"]{--bg:#17191c;--text:#e6e8eb;--muted:#9aa1ab;--line:#30343a;--btn:#202327;--btn-hover:#2a2e33}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Manrope,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;align-items:center}
+main{width:100%;max-width:960px;padding:24px 16px 32px;display:flex;flex-direction:column;align-items:center;gap:16px}
+h1{font-size:1.15rem;font-weight:600;margin:0;letter-spacing:.01em}
+#wrap{width:100%;height:min(70vh,620px);min-height:360px;cursor:grab;touch-action:pan-y}
+#view{width:100%;height:100%;display:block}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}
+.label{font-size:.85rem;color:var(--muted);margin:0 4px 0 12px}
+.label:first-child{margin-left:0}
+button{font:inherit;font-size:.85rem;color:var(--text);background:var(--btn);border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+button:hover{background:var(--btn-hover)}
+button:focus-visible{outline:2px solid #1e90ff;outline-offset:2px}
+.sw{width:12px;height:12px;border-radius:50%;display:inline-block}
+.hint{font-size:.8rem;color:var(--muted);margin:0}
+</style>
+</head>
+<body>
+<main>
+<h1>Mascote — protótipo 3D aprovado</h1>
+<div id="wrap"><canvas id="view" aria-label="Robô mascote 3D flutuando e acenando"></canvas></div>
+<div class="controls">
+<span class="label">LEDs</span>
+<button data-led="#1e90ff"><span class="sw" style="background:#1e90ff"></span>Azul</button>
+<button data-led="#00ff6a"><span class="sw" style="background:#00ff6a"></span>Verde</button>
+<button data-led="#ff9f00"><span class="sw" style="background:#ff9f00"></span>Âmbar</button>
+<button data-led="#ff1fa0"><span class="sw" style="background:#ff1fa0"></span>Rosa</button>
+<span class="label">Corpo</span>
+<button data-body="light">Cinza claro</button>
+<button data-body="dark">Chumbo</button>
+</div>
+<p class="hint">Arraste para girar o robô</p>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const wrap=document.getElementById('wrap');
+const view=document.getElementById('view');
+const ctx=view.getContext('2d');
+const dpr=window.devicePixelRatio||1;
+let W=wrap.clientWidth||680,H=wrap.clientHeight||440,SS=3;
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(1);
+renderer.setClearColor(0x000000,0);
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=0.92;
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFShadowMap;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(30,W/H,0.1,100);
+camera.position.set(0,0.4,11);
+camera.lookAt(0,0.1,0);
+function sizeAll(){
+W=wrap.clientWidth||680;H=wrap.clientHeight||440;
+const outW=Math.round(W*dpr),outH=Math.round(H*dpr);
+view.width=outW;view.height=outH;
+SS=Math.max(2,Math.min(3,Math.floor(4096/Math.max(outW,outH))));
+renderer.setSize(outW*SS,outH*SS,false);
+camera.aspect=W/H;
+camera.fov=W/H<1?42:30;
+camera.updateProjectionMatrix();
+ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+}
+sizeAll();
+const C=h=>new THREE.Color(h).convertSRGBToLinear();
+
+const pm=new THREE.PMREMGenerator(renderer);
+const env=new THREE.Scene();
+env.add(new THREE.Mesh(new THREE.BoxGeometry(24,24,24),new THREE.MeshBasicMaterial({color:new THREE.Color(0.16,0.165,0.175),side:THREE.BackSide})));
+function panel(w,h,x,y,z,r,g,b){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:new THREE.Color(r,g,b),side:THREE.DoubleSide}));m.position.set(x,y,z);m.lookAt(0,0,0);env.add(m);}
+panel(16,16,-1,11,3,1.7,1.7,1.7);
+panel(12,14,-10,3,6,1.15,1.15,1.18);
+panel(10,14,10,2,5,0.6,0.62,0.68);
+panel(12,6,0,-6,10,0.35,0.35,0.35);
+panel(10,12,4,3,-11,0.5,0.55,0.65);
+scene.environment=pm.fromScene(env,0.06).texture;
+
+const key=new THREE.DirectionalLight(0xfff5ea,0.9);key.position.set(-4,7,6);
+key.castShadow=true;key.shadow.mapSize.set(4096,4096);key.shadow.radius=7;key.shadow.bias=-0.0003;key.shadow.normalBias=0.03;
+const sc=key.shadow.camera;sc.left=-3.2;sc.right=3.2;sc.top=3.2;sc.bottom=-3.2;sc.near=1;sc.far=22;
+scene.add(key);
+scene.add(new THREE.HemisphereLight(0xe8edf5,0x2a2623,0.22));
+
+const nc=document.createElement('canvas');nc.width=nc.height=512;const nx=nc.getContext('2d');
+const img=nx.createImageData(512,512);
+for(let i=0;i<img.data.length;i+=4){const v=205+Math.random()*40;img.data[i]=img.data[i+1]=img.data[i+2]=v;img.data[i+3]=255;}
+nx.putImageData(img,0,0);nx.filter='blur(1.2px)';nx.drawImage(nc,0,0);
+const noise=new THREE.CanvasTexture(nc);noise.wrapS=noise.wrapT=THREE.RepeatWrapping;noise.repeat.set(3,3);noise.anisotropy=renderer.capabilities.getMaxAnisotropy();
+
+const pbr=(h,ei)=>new THREE.MeshStandardMaterial({color:C(h),metalness:0,roughness:1,roughnessMap:noise,bumpMap:noise,bumpScale:0.0012,envMapIntensity:ei||0.85});
+const shell=pbr(0xaeb3ba);
+const trim=pbr(0x6a717b);
+const seam=pbr(0x22252a,0.6);
+const dark=pbr(0x23272e,0.8);
+const accentMat=pbr(0x1e90ff,0.7);
+const visorMat=new THREE.MeshStandardMaterial({color:C(0x15171a),roughness:0.6,metalness:0,envMapIntensity:0.18});
+const led=new THREE.MeshBasicMaterial({color:C(0x1e90ff),toneMapped:false});
+
+function rr(w,h,r){const s=new THREE.Shape(),x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s;}
+function rbox(w,h,d,r,b){const g=new THREE.ExtrudeGeometry(rr(w-2*b,h-2*b,Math.max(r-b,0.02)),{depth:d-2*b,bevelEnabled:true,bevelThickness:b,bevelSize:b,bevelSegments:20,curveSegments:48});g.center();return g;}
+const robot=new THREE.Group();scene.add(robot);
+function add(m,parent,cast){m.castShadow=cast!==false;m.receiveShadow=true;(parent||robot).add(m);return m;}
+
+add(new THREE.Mesh(rbox(2.2,1.8,1.7,0.6,0.32),shell)).position.y=1.0;
+add(new THREE.Mesh(rbox(1.92,1.42,0.16,0.5,0.07),trim)).position.set(0,0.98,0.78);
+add(new THREE.Mesh(rbox(1.76,1.26,0.2,0.42,0.08),visorMat)).position.set(0,0.98,0.83);
+
+const eyes=new THREE.Group();eyes.position.set(0,0.98,0.94);robot.add(eyes);
+const eyeGeo=new THREE.TorusGeometry(0.17,0.055,32,96,Math.PI);
+[-0.38,0.38].forEach(x=>{const e=new THREE.Mesh(eyeGeo,led);e.position.x=x;eyes.add(e);});
+
+add(new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.38,0.32,96),trim)).position.y=0.02;
+const nr=add(new THREE.Mesh(new THREE.TorusGeometry(0.4,0.035,20,96),seam));nr.position.y=-0.12;nr.rotation.x=Math.PI/2;
+
+const prof=[[0.001,-1.28],[0.36,-1.22],[0.66,-1.02],[0.86,-0.66],[0.93,-0.26],[0.9,0.08],[0.78,0.34],[0.52,0.5],[0.001,0.55]];
+const pts=new THREE.SplineCurve(prof.map(p=>new THREE.Vector2(p[0],p[1]))).getPoints(160);
+add(new THREE.Mesh(new THREE.LatheGeometry(pts,192),shell)).position.y=-0.6;
+const belt=add(new THREE.Mesh(new THREE.TorusGeometry(0.912,0.02,16,192),seam));belt.rotation.x=Math.PI/2;belt.position.y=-1.0;
+
+const plate=add(new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.38,0.05,128),visorMat));plate.rotation.x=Math.PI/2-0.12;plate.position.set(0,-0.48,0.83);
+const ring=add(new THREE.Mesh(new THREE.TorusGeometry(0.29,0.055,32,128),led),robot,false);ring.position.set(0,-0.48,0.865);ring.rotation.x=-0.12;
+add(new THREE.Mesh(new THREE.SphereGeometry(0.1,64,64),led),robot,false).position.set(0,-0.48,0.86);
+
+const armGeo=new THREE.SphereGeometry(0.22,96,96);
+const armL=new THREE.Group();armL.position.set(-0.86,-0.4,0.05);robot.add(armL);
+const aL=add(new THREE.Mesh(armGeo,shell),armL);aL.scale.set(1,2.0,1);aL.position.y=-0.42;
+const armR=new THREE.Group();armR.position.set(0.86,-0.45,0.05);robot.add(armR);
+const aR=add(new THREE.Mesh(armGeo,shell),armR);aR.scale.set(1,2.0,1);aR.position.y=0.42;
+
+const band=add(new THREE.Mesh(new THREE.TorusGeometry(1.24,0.09,32,192,Math.PI),dark));band.position.y=0.98;band.scale.y=0.86;
+[-1,1].forEach(s=>{
+const cup=add(new THREE.Mesh(new THREE.CylinderGeometry(0.43,0.43,0.3,128),dark));cup.rotation.z=Math.PI/2;cup.position.set(s*1.2,0.95,0);
+const acc=add(new THREE.Mesh(new THREE.TorusGeometry(0.29,0.05,24,128),accentMat));acc.rotation.y=Math.PI/2;acc.position.set(s*1.36,0.95,0);
+const cap=add(new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.06,96),dark));cap.rotation.z=Math.PI/2;cap.position.set(s*1.36,0.95,0);
+});
+add(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.035,0.3,32),dark)).position.y=2.2;
+add(new THREE.Mesh(new THREE.SphereGeometry(0.1,64,64),led),robot,false).position.y=2.4;
+
+const c=document.createElement('canvas');c.width=c.height=512;const cx=c.getContext('2d');
+const gr=cx.createRadialGradient(256,256,0,256,256,256);gr.addColorStop(0,'rgba(0,0,0,0.5)');gr.addColorStop(0.5,'rgba(0,0,0,0.18)');gr.addColorStop(1,'rgba(0,0,0,0)');cx.fillStyle=gr;cx.fillRect(0,0,512,512);
+const shMat=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false});
+const shadow=new THREE.Mesh(new THREE.PlaneGeometry(3,3),shMat);shadow.rotation.x=-Math.PI/2;shadow.position.y=-2.35;scene.add(shadow);
+
+function setLed(hex){led.color.copy(C(hex));accentMat.color.copy(C(hex));}
+document.querySelectorAll('[data-led]').forEach(b=>b.addEventListener('click',()=>setLed(b.dataset.led)));
+document.querySelectorAll('[data-body]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.body==='dark'){shell.color.copy(C(0x3b3e43));trim.color.copy(C(0x1f2226));seam.color.copy(C(0x0e0f11));dark.color.copy(C(0x16181c));}else{shell.color.copy(C(0xaeb3ba));trim.color.copy(C(0x6a717b));seam.color.copy(C(0x22252a));dark.color.copy(C(0x23272e));}}));
+
+let targetY=-0.5,curY=-0.5,dragging=false,lastX=0;
+view.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;wrap.style.cursor='grabbing';view.setPointerCapture(e.pointerId);});
+view.addEventListener('pointermove',e=>{if(!dragging)return;targetY+=(e.clientX-lastX)*0.012;lastX=e.clientX;});
+const up=()=>{dragging=false;wrap.style.cursor='grab';};
+view.addEventListener('pointerup',up);view.addEventListener('pointercancel',up);
+new ResizeObserver(()=>sizeAll()).observe(wrap);
+
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const glc=renderer.domElement;
+const clock=new THREE.Clock();let nextBlink=2.5;
+function loop(){
+const t=reduce?0:clock.getElapsedTime();
+const bob=Math.sin(t*1.6)*0.09;
+robot.position.y=bob;
+robot.rotation.z=Math.sin(t*1.1)*0.025;
+const sway=dragging||reduce?0:Math.sin(t*0.45)*0.12;
+curY+=(targetY+sway-curY)*0.08;
+robot.rotation.y=curY;
+robot.rotation.x=Math.sin(t*0.8)*0.03;
+armR.rotation.z=-1.05+Math.sin(t*6)*0.25;
+armL.rotation.z=-0.36+Math.sin(t*1.6+1)*0.05;
+let sy=1;
+if(!reduce&&t>nextBlink){const k=t-nextBlink;sy=k<0.14?Math.max(0.12,1-k*7):Math.min(1,0.12+(k-0.14)*7);if(k>0.3)nextBlink=t+2.5+Math.random()*3;}
+eyes.scale.y=sy;
+const s=1-bob*0.9;shadow.scale.set(s,s,1);shMat.opacity=0.85-bob*1.5;
+renderer.render(scene,camera);
+ctx.clearRect(0,0,view.width,view.height);
+ctx.drawImage(glc,0,0,view.width,view.height);
+requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
