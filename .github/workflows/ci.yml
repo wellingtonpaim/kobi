@@ -87,7 +87,7 @@ jobs:
           fi
           git rev-parse -q --verify "${range%%..*}^{commit}" >/dev/null || range="${{ github.sha }}~1..${{ github.sha }}"
 
-          pattern='^(feat|fix|refactor|perf|test|docs|style|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .+'
+          pattern='(feat|fix|refactor|perf|test|docs|style|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .+'
           invalid=$(git log --no-merges --format='%h %s' "$range" | grep -Ev "^[0-9a-f]+ $pattern" || true)
           if [ -n "$invalid" ]; then
             echo "::error::Commits fora do padrão Conventional Commits:"
