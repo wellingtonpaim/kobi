@@ -44,3 +44,4 @@ O protótipo 3D aprovado está em `prototipos/kobi-v6.html`. Ele é a **referên
 - Interface do app com i18n (pt, en, es; fr desejável) — nunca texto fixo no código.
 - Dependências: preferir licenças permissivas (MIT, Apache 2.0, BSD). Verificar a licença de cada modelo/voz usado.
 - Ambiente principal de desenvolvimento: Fedora 44, GNOME 50 (Wayland puro), três monitores. Testar overlay e multi-monitor nesse ambiente primeiro.
+- **Esse ambiente é referência de teste, não o alvo.** O Kobi é distribuído para qualquer pessoa: 1 a N monitores em qualquer disposição, escalas e taxas de atualização variadas, hotplug, Windows, macOS e várias distros. Nenhuma regra pode supor uma configuração específica; o que é de plataforma fica atrás de portas, e regras de geometria e afins ficam no domínio, testadas com vários cenários.
