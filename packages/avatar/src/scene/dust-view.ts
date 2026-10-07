@@ -6,7 +6,7 @@ import { Dust, type Puff } from '../motion/dust.js';
 const GROUND_Y = -2.35;
 /** Um pouco à frente da base, para a poeira não sumir atrás do corpo. */
 const DEPTH = 0.6;
-const DUST_COLOR = '#a39b8e';
+const DUST_COLOR = '#b3aa9c';
 
 const softPuffTexture = (): THREE.CanvasTexture => {
   const canvas = document.createElement('canvas');

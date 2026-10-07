@@ -15,19 +15,19 @@ export interface Puff {
   opacity: number;
 }
 
-const CAPACITY = 48;
-const MAX_OPACITY = 0.42;
+const CAPACITY = 96;
+const MAX_OPACITY = 0.6;
 /**
  * Só arrancadas e freadas fortes levantam poeira (px/s²): voos calmos ficam limpos.
  * A velocidade mínima evita poeira no instante em que o Kobi ainda está parado.
  */
-const ACCELERATION_FLOOR = 600;
-const ACCELERATION_RANGE = 900;
+const ACCELERATION_FLOOR = 250;
+const ACCELERATION_RANGE = 700;
 const SPEED_FULL = 150;
-const PUFFS_PER_SECOND = 36;
+const PUFFS_PER_SECOND = 70;
 const DRAG = 2.2;
 /** Fração da janela, a partir do centro, em que a poeira começa a sumir antes da borda. */
-const EDGE_FADE_START = 0.7;
+const EDGE_FADE_START = 0.8;
 
 const fadeNearEdge = (offset: number, half: number): number => {
   const reach = Math.abs(offset) / half;
@@ -105,13 +105,13 @@ export class Dust {
     if (!puff) return;
     const r = this.random;
     Object.assign(puff, {
-      x: direction * (0.15 + r() * 0.25),
-      y: r() * 0.08,
+      x: direction * (0.1 + r() * 0.5),
+      y: r() * 0.12,
       vx: direction * (0.5 + r() * 0.7) * (0.6 + intensity * 0.4),
       vy: 0.12 + r() * 0.18,
       age: 0,
       life: 0.9 + r() * 0.6,
-      size: 0.32 + r() * 0.24,
+      size: 0.45 + r() * 0.35,
       opacity: 0,
     });
     this.active.push(puff);
@@ -138,7 +138,7 @@ export class Dust {
       puff.y += puff.vy * dt + shiftY;
       puff.vx *= drag;
       puff.vy *= drag;
-      puff.size += 0.7 * dt;
+      puff.size += 0.9 * dt;
       const k = puff.age / puff.life;
       const appear = Math.min(1, k / 0.12);
       puff.opacity =

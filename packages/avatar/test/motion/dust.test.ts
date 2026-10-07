@@ -37,7 +37,7 @@ describe('Dust', () => {
   it('stays clean on calm flights', () => {
     const dust = new Dust(sequence([0.5]));
     let most = 0;
-    run(dust, 500, 2.2, 0, 2.5, 60, () => (most = Math.max(most, dust.puffs.length)));
+    run(dust, 300, 3, 0, 3.5, 60, () => (most = Math.max(most, dust.puffs.length)));
 
     expect(most).toBe(0);
   });
@@ -117,5 +117,24 @@ describe('Dust', () => {
     run(dust, 2400, 2.2, 0, 2.2);
 
     expect(dust.puffs).toHaveLength(0);
+  });
+});
+
+describe('Dust at normal flight speed', () => {
+  it('is raised on an ordinary 700 px/s trip across a monitor, not only on fast ones', () => {
+    const dust = new Dust(() => 0.5);
+    let most = 0;
+    // 1500 px a 700 px/s de pico, como no passeio do app.
+    run(
+      dust,
+      1500,
+      (1.875 * 1500) / 700,
+      0,
+      4.5,
+      60,
+      () => (most = Math.max(most, dust.puffs.length)),
+    );
+
+    expect(most).toBeGreaterThanOrEqual(10);
   });
 });
