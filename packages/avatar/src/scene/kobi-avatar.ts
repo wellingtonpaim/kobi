@@ -6,7 +6,7 @@ import { Dust } from '../motion/dust.js';
 import { floatPose } from '../motion/float-pose.js';
 import { supersampleFactor } from '../motion/supersampling.js';
 import { blendTurn, Pendulum, travelHeading, type Velocity } from '../motion/travel.js';
-import { DustView } from './dust-view.js';
+import { type DustFrame, dustFrame, DustView } from './dust-view.js';
 import { BASE_HEIGHT, buildKobi, type KobiModel } from './kobi-model.js';
 import type { BodyTone } from './palette.js';
 import { createRenderer, lightStudio, type Studio } from './studio.js';
@@ -17,6 +17,7 @@ export interface KobiAvatarOptions {
   readonly reducedMotion?: boolean;
 }
 
+const LOOK_AT_Y = 0.1;
 const INITIAL_TURN = -0.5;
 const TURN_PER_PIXEL = 0.012;
 const TURN_SMOOTHING = 0.08;
@@ -46,9 +47,10 @@ export class KobiAvatar {
   private readonly leanAxis = new THREE.Vector3();
   private readonly dust: Dust;
   private readonly dustView: DustView;
-  /** Quanto um pixel CSS mede na cena, e a meia janela em unidades da cena. */
-  private worldPerPixel = 0;
-  private readonly halfView = { width: 0, height: 0 };
+  private dustFrame: DustFrame = {
+    worldPerPixel: 0,
+    bounds: { left: 0, right: 0, bottom: 0, top: 0 },
+  };
 
   constructor({ canvas, reducedMotion = false }: KobiAvatarOptions) {
     const output = canvas.getContext('2d');
@@ -59,7 +61,7 @@ export class KobiAvatar {
     this.pendulum = new Pendulum(reducedMotion);
     this.dust = new Dust(Math.random, reducedMotion);
     this.camera.position.set(0, 0.4, 11);
-    this.camera.lookAt(0, 0.1, 0);
+    this.camera.lookAt(0, LOOK_AT_Y, 0);
     this.studio = lightStudio(this.scene, this.renderer);
     this.model = buildKobi(
       this.scene,
@@ -79,11 +81,7 @@ export class KobiAvatar {
     this.camera.aspect = width / height;
     this.camera.fov = width / height < 1 ? 42 : 30;
     this.camera.updateProjectionMatrix();
-    const viewHeight =
-      2 * this.camera.position.z * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
-    this.worldPerPixel = viewHeight / height;
-    this.halfView.width = (viewHeight * this.camera.aspect) / 2;
-    this.halfView.height = viewHeight / 2;
+    this.dustFrame = dustFrame(this.camera, LOOK_AT_Y, height);
     this.output.imageSmoothingEnabled = true;
     this.output.imageSmoothingQuality = 'high';
   }
@@ -110,7 +108,12 @@ export class KobiAvatar {
     eyes.scale.y = this.blinker.openness(elapsedSeconds);
     shadow.scale.set(pose.shadowScale, pose.shadowScale, 1);
     shadow.material.opacity = pose.shadowOpacity;
-    this.dust.update(this.travelVelocity, delta, this.worldPerPixel, this.halfView);
+    this.dust.update(
+      this.travelVelocity,
+      delta,
+      this.dustFrame.worldPerPixel,
+      this.dustFrame.bounds,
+    );
     this.dustView.sync(this.dust.puffs);
 
     this.renderer.render(this.scene, this.camera);

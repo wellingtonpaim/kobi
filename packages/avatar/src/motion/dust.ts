@@ -15,23 +15,41 @@ export interface Puff {
   opacity: number;
 }
 
-const CAPACITY = 48;
-const MAX_OPACITY = 0.42;
+const CAPACITY = 96;
+const MAX_OPACITY = 0.6;
 /**
  * Só arrancadas e freadas fortes levantam poeira (px/s²): voos calmos ficam limpos.
  * A velocidade mínima evita poeira no instante em que o Kobi ainda está parado.
  */
-const ACCELERATION_FLOOR = 600;
-const ACCELERATION_RANGE = 900;
+const ACCELERATION_FLOOR = 250;
+const ACCELERATION_RANGE = 700;
 const SPEED_FULL = 150;
-const PUFFS_PER_SECOND = 36;
+const PUFFS_PER_SECOND = 70;
 const DRAG = 2.2;
-/** Fração da janela, a partir do centro, em que a poeira começa a sumir antes da borda. */
-const EDGE_FADE_START = 0.7;
+/** Faixa (unidades da cena) em que uma nuvenzinha se desfaz antes de tocar a borda da janela. */
+const EDGE_FADE = 0.6;
 
-const fadeNearEdge = (offset: number, half: number): number => {
-  const reach = Math.abs(offset) / half;
-  return Math.max(0, Math.min(1, (1 - reach) / (1 - EDGE_FADE_START)));
+/** Limites da janela do Kobi em unidades da cena, a partir do ponto do chão sob ele. */
+export interface DustBounds {
+  readonly left: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly top: number;
+}
+
+/**
+ * 1 longe das bordas e 0 antes que qualquer parte da nuvenzinha (não só o centro)
+ * chegue à borda da janela: a poeira nunca aparece cortada.
+ */
+const edgeFade = (puff: Puff, bounds: DustBounds): number => {
+  const radius = puff.size / 2;
+  const room = Math.min(
+    puff.x - bounds.left,
+    bounds.right - puff.x,
+    puff.y - bounds.bottom,
+    bounds.top - puff.y,
+  );
+  return Math.max(0, Math.min(1, (room - radius) / EDGE_FADE));
 };
 
 /**
@@ -69,13 +87,13 @@ export class Dust {
   /**
    * @param velocity velocidade do Kobi na tela, em px/s (y para baixo)
    * @param worldPerPixel quanto um pixel CSS mede na cena
-   * @param half meia largura e meia altura da janela do Kobi, em unidades da cena
+   * @param bounds limites da janela do Kobi, em unidades da cena
    */
   update(
     velocity: Velocity,
     elapsedSeconds: number,
     worldPerPixel: number,
-    half: { readonly width: number; readonly height: number },
+    bounds: DustBounds,
   ): void {
     if (this.reducedMotion || elapsedSeconds <= 0) return;
 
@@ -83,7 +101,7 @@ export class Dust {
     const acceleration = (speed - this.lastSpeed) / elapsedSeconds;
     this.lastSpeed = speed;
 
-    this.age(velocity, elapsedSeconds, worldPerPixel, half);
+    this.age(velocity, elapsedSeconds, worldPerPixel, bounds);
 
     const intensity =
       Math.max(0, Math.min(1, (Math.abs(acceleration) - ACCELERATION_FLOOR) / ACCELERATION_RANGE)) *
@@ -105,24 +123,19 @@ export class Dust {
     if (!puff) return;
     const r = this.random;
     Object.assign(puff, {
-      x: direction * (0.15 + r() * 0.25),
-      y: r() * 0.08,
+      x: direction * (0.1 + r() * 0.5),
+      y: r() * 0.12,
       vx: direction * (0.5 + r() * 0.7) * (0.6 + intensity * 0.4),
       vy: 0.12 + r() * 0.18,
       age: 0,
       life: 0.9 + r() * 0.6,
-      size: 0.32 + r() * 0.24,
+      size: 0.45 + r() * 0.35,
       opacity: 0,
     });
     this.active.push(puff);
   }
 
-  private age(
-    velocity: Velocity,
-    dt: number,
-    worldPerPixel: number,
-    half: { readonly width: number; readonly height: number },
-  ): void {
+  private age(velocity: Velocity, dt: number, worldPerPixel: number, bounds: DustBounds): void {
     const drag = Math.exp(-DRAG * dt);
     // A cena acompanha a janela; para a poeira ficar parada na tela, ela anda ao contrário.
     const shiftX = -velocity.x * dt * worldPerPixel;
@@ -138,15 +151,10 @@ export class Dust {
       puff.y += puff.vy * dt + shiftY;
       puff.vx *= drag;
       puff.vy *= drag;
-      puff.size += 0.7 * dt;
+      puff.size += 0.9 * dt;
       const k = puff.age / puff.life;
       const appear = Math.min(1, k / 0.12);
-      puff.opacity =
-        MAX_OPACITY *
-        appear *
-        (1 - k) ** 2 *
-        fadeNearEdge(puff.x, half.width) *
-        fadeNearEdge(puff.y, half.height);
+      puff.opacity = MAX_OPACITY * appear * (1 - k) ** 2 * edgeFade(puff, bounds);
       alive.push(puff);
     }
     this.active = alive;
