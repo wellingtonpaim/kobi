@@ -22,7 +22,10 @@ export class LanguageCode {
   private constructor(readonly value: SupportedLanguage) {}
 
   static create(raw: string): Result<LanguageCode, UnsupportedLanguage> {
-    const base = raw.trim().toLowerCase().split(/[-_.]/, 1)[0] ?? '';
+    const base = raw
+      .trim()
+      .toLowerCase()
+      .replace(/[-_.].*$/s, '');
     return isSupported(base)
       ? ok(new LanguageCode(base))
       : err({ kind: 'unsupported-language', input: raw });
