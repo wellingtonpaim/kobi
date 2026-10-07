@@ -7,7 +7,7 @@ Referência oficial: `prototipos/kobi-v6.html` (abrir no navegador; arraste para
 - Robozinho **sem pernas**, que **flutua** com leve oscilação vertical (sobe e desce suavemente) e leve balanço.
 - **Cabeça** em bloco de cantos bem arredondados, mais larga que alta.
 - **Display/visor** retangular de cantos arredondados, com moldura cinza ao redor.
-- **Fone de ouvido**: haste sobre a cabeça e conchas nas laterais; anel colorido nas conchas acompanha a cor dos LEDs.
+- **Fone de ouvido**: haste sobre a cabeça e conchas nas laterais; anel colorido nas conchas acompanha a cor dos LEDs. A haste tem o **dobro da espessura da v6** (aprovado em 2026-10-07: a original parecia fina demais) e apoia no topo da cabeça como um fone de verdade; a antena sai do alto da haste.
 - **Antena** única no topo da haste, com bolinha de LED na cor dos LEDs.
 - **Corpo em gota**, com junção (friso) no pescoço e um friso horizontal no corpo.
 - **Bracinhos** arredondados e articulados nos ombros; os dois gesticulam (acenar, levar à cabeça, segurar a cabeça) sem atravessar o corpo nem a cabeça.
