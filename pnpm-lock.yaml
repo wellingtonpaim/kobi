@@ -200,6 +200,14 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@24.19.1)(@vitest/coverage-v8@5.0.3)(vite@8.3.3(@types/node@24.19.1))
 
+  packages/application:
+    dependencies:
+      '@kobi/domain':
+        specifier: workspace:*
+        version: link:../domain
+
+  packages/domain: {}
+
 packages:
 
   '@babel/helper-string-parser@7.29.7':

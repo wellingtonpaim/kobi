@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { Display, type DisplayProps } from '../../src/presence/display.js';
-import { rect } from './fixtures.js';
+import { rect } from '../../testing/index.js';
 
 const props = (overrides: Partial<DisplayProps> = {}): DisplayProps => ({
   id: 'HDMI-1',

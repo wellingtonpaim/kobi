@@ -1,6 +1,6 @@
-import { Display, type DisplayProps } from '../../src/presence/display.js';
-import { DisplayLayout } from '../../src/presence/display-layout.js';
-import { Rect, type RectProps } from '../../src/presence/rect.js';
+import { Display, type DisplayProps } from '../src/presence/display.js';
+import { DisplayLayout } from '../src/presence/display-layout.js';
+import { Rect, type RectProps } from '../src/presence/rect.js';
 
 export const rect = (x: number, y: number, width: number, height: number): Rect => {
   const result = Rect.create({ x, y, width, height });

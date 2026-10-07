@@ -43,6 +43,10 @@ export class Rect implements RectProps {
     return this.y + this.height;
   }
 
+  get topLeft(): Point {
+    return { x: this.x, y: this.y };
+  }
+
   get center(): Point {
     return { x: this.x + this.width / 2, y: this.y + this.height / 2 };
   }
@@ -65,6 +69,13 @@ export class Rect implements RectProps {
 
   movedTo(topLeft: Point): Rect {
     return new Rect(topLeft.x, topLeft.y, this.width, this.height);
+  }
+
+  placedAtBottomRightOf(container: Rect, margin: number): Rect {
+    return this.movedTo({
+      x: container.right - this.width - margin,
+      y: container.bottom - this.height - margin,
+    }).clampedInside(container);
   }
 
   /** Menor deslocamento que coloca o retângulo dentro do contêiner; centraliza no eixo em que não cabe. */
