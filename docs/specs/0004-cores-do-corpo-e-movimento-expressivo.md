@@ -1,7 +1,7 @@
 # 0004 — Cores do corpo e movimento expressivo
 
 - Fase: 1 (avatar e base de movimento, junto do spike de overlay) e 2 (passeio autônomo usa o que nasce aqui)
-- Status: aprovada
+- Status: implementada
 
 ## Objetivo
 Dar ao Kobi mais personalidade visual: o usuário escolhe a cor do corpo entre várias opções, e o Kobi se desloca pela tela como algo vivo que flutua, vira o corpo para onde vai e se inclina como um pêndulo, em vez de deslizar rígido de um ponto a outro.
@@ -17,9 +17,9 @@ Dar ao Kobi mais personalidade visual: o usuário escolhe a cor do corpo entre v
 - As opções são **dados** (uma tabela de cores), não código: uma cor nova entra sem mudar o avatar.
 
 ### Critérios de aceite
-- [ ] Sete cores de corpo disponíveis no avatar e na página de desenvolvimento.
-- [ ] Capturas de cada cor aprovadas pelo Wellington antes de entrarem no `docs/design-visual.md`.
-- [ ] Trocar a cor não recria materiais nem geometrias (só muda cores), sem custo perceptível.
+- [x] Sete cores de corpo disponíveis no avatar e na página de desenvolvimento.
+- [x] Capturas de cada cor aprovadas pelo Wellington antes de entrarem no `docs/design-visual.md`.
+- [x] Trocar a cor não recria materiais nem geometrias (só muda cores), sem custo perceptível.
 
 ## Movimento expressivo
 
@@ -45,12 +45,12 @@ O avatar recebe a velocidade atual do deslocamento e reage:
 O giro e a inclinação são duas rotações a mais por quadro, custo desprezível perto da renderização. A poeira usa um conjunto fixo de sprites criado uma vez (sem alocação por quadro), desenhados só enquanto visíveis.
 
 ### Critérios de aceite
-- [ ] Voo no domínio com testes: começa e termina parado, chega exatamente ao destino, ondulação limitada e nula nas pontas, duração proporcional à distância com mínimo e máximo, qualquer direção.
-- [ ] Reação do corpo com testes: giro para o lado do movimento, de frente na vertical e parado, inclinação para a frente ao acelerar, para trás e amortecida ao frear, mesmo resultado em taxas de quadros diferentes.
-- [ ] Inclinação com pivô na base: a base não se desloca quando o Kobi inclina.
-- [ ] Poeira com testes: nenhuma em voos calmos, para trás na arrancada, para a frente na freada, discreta, parada na tela, some antes da borda, mesma quantidade em taxas de quadros diferentes, desligada com "reduzir movimento".
-- [ ] Parado, o avatar continua idêntico ao protótipo v6 (mesma comparação visual do passo 2).
-- [ ] Página de desenvolvimento onde um clique em qualquer ponto faz o Kobi voar até lá, para avaliar o movimento.
+- [x] Voo no domínio com testes: começa e termina parado, chega exatamente ao destino, ondulação limitada e nula nas pontas, duração proporcional à distância com mínimo e máximo, qualquer direção.
+- [x] Reação do corpo com testes: giro para o lado do movimento, de frente na vertical e parado, inclinação para a frente ao acelerar, para trás e amortecida ao frear, mesmo resultado em taxas de quadros diferentes.
+- [x] Inclinação com pivô na base: a base não se desloca quando o Kobi inclina.
+- [x] Poeira com testes: nenhuma em voos calmos, para trás na arrancada, para a frente na freada, discreta, parada na tela, some antes da borda, mesma quantidade em taxas de quadros diferentes, desligada com "reduzir movimento".
+- [x] Parado, o avatar continua idêntico ao protótipo v6 (mesma comparação visual do passo 2).
+- [x] Página de desenvolvimento onde um clique em qualquer ponto faz o Kobi voar até lá, para avaliar o movimento.
 
 ## Fora do escopo
 - Passeio autônomo (quando e para onde o Kobi vai sozinho) e física ao soltar após arrastar (Fase 2).
