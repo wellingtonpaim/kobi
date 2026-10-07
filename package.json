@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:boundaries": "depcruise packages --config .dependency-cruiser.cjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test:coverage",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

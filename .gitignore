@@ -4,6 +4,7 @@ dist/
 out/
 build/
 coverage/
+.coverage
 *.tsbuildinfo
 .pnpm-store/
 npm-debug.log*

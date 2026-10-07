@@ -99,7 +99,7 @@ kobi/
 
 - TypeScript em modo `strict`; ESLint + Prettier; Ruff + mypy no Python.
 - Commits no padrão Conventional Commits; versionamento semântico.
-- CI no GitHub Actions: lint, verificação de fronteiras, testes e build por plataforma.
+- CI no GitHub Actions: lint, verificação de fronteiras, testes com cobertura mínima de 90% e build por plataforma. Commits na `homologacao`; a `main` só recebe PRs com os pipelines aprovados (ADR 0003).
 - **ADRs** em `docs/adr/` para cada decisão arquitetural nova (contexto, decisão, consequências).
 - Funcionalidades experimentais (ex.: CLIs de IA) atrás de *feature flags*.
 - Erros como valores tipados no domínio (`Result`/exceções de domínio), tratados nas bordas com mensagens amigáveis.

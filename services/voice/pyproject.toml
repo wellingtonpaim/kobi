@@ -9,7 +9,12 @@ requires-python = ">=3.14"
 dependencies = []
 
 [dependency-groups]
-dev = ["pytest", "ruff", "mypy"]
+dev = [
+    "pytest",
+    "ruff",
+    "mypy",
+    "pytest-cov>=7.1.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.12.19,<0.13.0"]
@@ -27,3 +32,4 @@ files = ["src", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=kobi_voice --cov-report=term-missing --cov-fail-under=90"

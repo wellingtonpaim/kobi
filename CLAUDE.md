@@ -39,6 +39,7 @@ O protótipo 3D aprovado está em `prototipos/kobi-v6.html`. Ele é a **referên
 - Decisões arquiteturais novas viram um ADR em `docs/adr/`.
 - Pragmatismo: aplique os padrões onde trazem flexibilidade real; evite camadas e abstrações sem uso (YAGNI).
 - Spec-Driven Development: para cada funcionalidade, uma spec em `docs/specs/` antes do código.
+- Git: commitar sempre na branch `homologacao` (nunca direto na `main`), em Conventional Commits e sem linhas de coautoria. O push abre um PR automático para a `main`, que só aceita merge com os pipelines aprovados (ADR 0003). Rode `pnpm check` antes de commitar.
 - Código, nomes de arquivos e identificadores em inglês; documentação e conversa em português (pt-BR).
 - Interface do app com i18n (pt, en, es; fr desejável) — nunca texto fixo no código.
 - Dependências: preferir licenças permissivas (MIT, Apache 2.0, BSD). Verificar a licença de cada modelo/voz usado.
