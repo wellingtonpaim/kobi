@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { Dust } from '../../src/motion/dust.js';
 
 const WORLD_PER_PIXEL = 0.02;
-const HALF = { width: 3, height: 4 };
+/** Limites da janela do Kobi em unidades da cena, a partir do ponto do chão sob ele. */
+const BOUNDS = { left: -3, right: 3, bottom: -1.8, top: 6 };
 
 /** Velocidade (px/s) de um voo de jerk mínimo para a direita. */
 const flightSpeed = (distance: number, duration: number, t: number): number => {
@@ -23,7 +24,7 @@ const run = (
 ): void => {
   for (let frame = Math.round(from * hz) + 1; frame <= Math.round(to * hz); frame++) {
     const t = frame / hz;
-    dust.update({ x: flightSpeed(distance, duration, t), y: 0 }, 1 / hz, WORLD_PER_PIXEL, HALF);
+    dust.update({ x: flightSpeed(distance, duration, t), y: 0 }, 1 / hz, WORLD_PER_PIXEL, BOUNDS);
     onFrame?.(t);
   }
 };
@@ -82,21 +83,46 @@ describe('Dust', () => {
     if (!puff) throw new Error('expected a puff');
     const before = puff.x;
     const own = puff.vx * (1 / 60);
-    dust.update({ x: 600, y: 0 }, 1 / 60, WORLD_PER_PIXEL, HALF);
+    dust.update({ x: 600, y: 0 }, 1 / 60, WORLD_PER_PIXEL, BOUNDS);
 
     expect(puff.x).toBeLessThan(before + own);
     expect(before + own - puff.x).toBeCloseTo(600 * (1 / 60) * WORLD_PER_PIXEL, 2);
   });
 
-  it('fades out before reaching the edge of the Kobi window', () => {
+  it('fades out before any part of a puff reaches the edge of the Kobi window', () => {
     const dust = new Dust(sequence([0.5]));
     run(dust, 2400, 2.2, 0, 0.5);
     const puff = dust.puffs[0];
     if (!puff) throw new Error('expected a puff');
-    puff.x = -HALF.width;
-    dust.update({ x: 0, y: 0 }, 1 / 60, WORLD_PER_PIXEL, HALF);
+    puff.x = BOUNDS.left + puff.size / 2;
+    dust.update({ x: 0, y: 0 }, 1 / 60, WORLD_PER_PIXEL, BOUNDS);
 
     expect(puff.opacity).toBe(0);
+  });
+
+  it.each([
+    ['a fast flight', 2400, 2.2],
+    ['an ordinary flight', 1500, (1.875 * 1500) / 700],
+    ['a short hop', 400, 0.8],
+  ])('is never cut by the window edges on %s', (_, distance, duration) => {
+    const dust = new Dust(sequence([0.1, 0.9, 0.5, 0.3, 0.7]));
+    const cut: string[] = [];
+    run(dust, distance, duration, 0, duration + 1.5, 60, (t) => {
+      for (const p of dust.puffs) {
+        if (p.opacity === 0) continue;
+        const r = p.size / 2;
+        if (
+          p.x - r < BOUNDS.left ||
+          p.x + r > BOUNDS.right ||
+          p.y - r < BOUNDS.bottom ||
+          p.y + r > BOUNDS.top
+        ) {
+          cut.push(`t=${t.toFixed(2)} x=${p.x.toFixed(2)} size=${p.size.toFixed(2)}`);
+        }
+      }
+    });
+
+    expect(cut).toEqual([]);
   });
 
   it.each([100, 144])('raises about as much dust at %i Hz as at 60 Hz', (hz) => {

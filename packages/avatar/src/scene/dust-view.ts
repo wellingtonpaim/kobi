@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-import { Dust, type Puff } from '../motion/dust.js';
+import { Dust, type DustBounds, type Puff } from '../motion/dust.js';
 
 /** Altura do chão (onde fica a sombra) na cena: a poeira nasce ali. */
 const GROUND_Y = -2.35;
@@ -20,6 +20,38 @@ const softPuffTexture = (): THREE.CanvasTexture => {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(canvas);
+};
+
+export interface DustFrame {
+  /** Quanto um pixel CSS mede no plano da poeira. */
+  readonly worldPerPixel: number;
+  readonly bounds: DustBounds;
+}
+
+/**
+ * Limites da janela no plano onde a poeira é desenhada, a partir do ponto do chão.
+ * Esse plano fica mais perto da câmera que o centro da cena, então a janela "cabe"
+ * menos ali: medir no plano certo é o que impede a poeira de passar da borda.
+ */
+export const dustFrame = (
+  camera: THREE.PerspectiveCamera,
+  lookAtY: number,
+  cssHeight: number,
+): DustFrame => {
+  const distance = camera.position.z - DEPTH;
+  const halfHeight = distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const halfWidth = halfHeight * camera.aspect;
+  const centerY =
+    camera.position.y + ((lookAtY - camera.position.y) * distance) / camera.position.z;
+  return {
+    worldPerPixel: (2 * halfHeight) / cssHeight,
+    bounds: {
+      left: -halfWidth,
+      right: halfWidth,
+      bottom: centerY - halfHeight - GROUND_Y,
+      top: centerY + halfHeight - GROUND_Y,
+    },
+  };
 };
 
 /** Desenha a poeira com um conjunto fixo de sprites, sem criar objetos a cada quadro. */
