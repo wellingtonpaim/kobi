@@ -21,6 +21,7 @@ Registro das decisões tomadas no planejamento, com o motivo de cada uma. Mudan�
 | **Python** no serviço de voz | Ecossistema de áudio mais maduro (openWakeWord, Whisper, Piper). Empacotado com Python embutido; o usuário não instala nada à parte. Pode migrar para ONNX no Node no futuro. |
 | Java e Go descartados para o app | Ecossistemas fracos para janelas transparentes, 3D em tempo real e overlay. |
 | Ferramentas e bibliotecas gratuitas/open source | Projeto sem custo. Preferir licenças permissivas; verificar licença de cada modelo e voz. |
+| Licença **MIT** para o projeto; extensão GNOME em GPL-2.0-or-later (2026-10-07) | Permissiva e simples, compatível com as dependências preferidas. A extensão é separada e precisa de GPL para o site de extensões. Ver ADR 0001. |
 
 ## Overlay e plataformas
 
@@ -72,5 +73,4 @@ Registro das decisões tomadas no planejamento, com o motivo de cada uma. Mudan�
 
 - Confirmar pronúncia ("Kôbi") e frase de ativação ("Hey Kobi").
 - Verificar nome Kobi: apps/projetos existentes e domínio.
-- Escolher a licença do projeto (MIT/Apache 2.0 ou GPL) antes de aceitar a primeira contribuição externa.
 - Confirmar termos de uso das CLIs de IA antes de divulgar a integração.

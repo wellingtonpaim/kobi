@@ -23,3 +23,7 @@ O protótipo 3D de referência está em [`prototipos/kobi-v6.html`](prototipos/k
 ## Stack
 
 TypeScript + Electron, three.js, serviço de voz em Python, extensão GNOME em GJS, memória local em Markdown + SQLite.
+
+## Licença
+
+[MIT](LICENSE). A extensão GNOME é distribuída separadamente sob GPL-2.0-or-later ([ADR 0001](docs/adr/0001-licenca-mit.md)).
