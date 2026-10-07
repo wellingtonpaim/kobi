@@ -1,0 +1,29 @@
+[project]
+name = "kobi-voice"
+version = "0.1.0"
+description = "Serviço local de voz do Kobi: palavra de ativação, transcrição e fala."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Wellington Paim" }]
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest", "ruff", "mypy"]
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

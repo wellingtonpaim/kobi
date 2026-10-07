@@ -84,7 +84,7 @@ kobi/
   prototipos/
 ```
 
-- Workspaces (pnpm ou npm) para os pacotes TS; cada pacote com fronteiras explícitas de importação.
+- pnpm workspaces para os pacotes TS; cada pacote com fronteiras explícitas de importação, verificadas pelo dependency-cruiser (ADR 0002). Cada pasta nasce na fase que a usa.
 - Contrato entre app e serviço de voz versionado (mensagens JSON com schema).
 
 ## 6. Testes

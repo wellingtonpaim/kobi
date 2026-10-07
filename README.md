@@ -24,6 +24,18 @@ O protótipo 3D de referência está em [`prototipos/kobi-v6.html`](prototipos/k
 
 TypeScript + Electron, three.js, serviço de voz em Python, extensão GNOME em GJS, memória local em Markdown + SQLite.
 
+## Desenvolvimento
+
+Requisitos: Node 24+, pnpm, Python 3.14+ e uv.
+
+```bash
+pnpm install       # dependências do monorepo TypeScript
+pnpm check         # formatação, lint, tipos, fronteiras entre camadas e testes
+pnpm test:watch    # testes em modo contínuo
+```
+
+O serviço de voz tem os próprios comandos em [`services/voice`](services/voice/README.md). As ferramentas e o motivo de cada escolha estão no [ADR 0002](docs/adr/0002-monorepo-e-ferramentas.md).
+
 ## Licença
 
 [MIT](LICENSE). A extensão GNOME é distribuída separadamente sob GPL-2.0-or-later ([ADR 0001](docs/adr/0001-licenca-mit.md)).
