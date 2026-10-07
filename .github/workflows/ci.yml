@@ -17,6 +17,9 @@ jobs:
   typescript:
     name: TypeScript
     runs-on: ubuntu-latest
+    env:
+      # Lint, tipos e testes não executam o Electron; o binário só é baixado para rodar o app.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
