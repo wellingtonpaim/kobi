@@ -2,6 +2,7 @@ import { KobiAvatar } from '@kobi/avatar';
 import { Flight, type Point } from '@kobi/domain';
 
 import type { CurrentDisplay, KobiBridge } from '../shared/api.js';
+import { FrameStats } from './frame-stats.js';
 import { HitSampler } from './hit-sampler.js';
 import { ReleaseTracker } from './release-tracker.js';
 import { sampledTrajectory, type Trajectory } from './trajectory.js';
@@ -33,14 +34,20 @@ window.addEventListener('resize', fit);
 
 // Clique atravessa fora do Kobi (só a área visível dele recebe o mouse), e o processo
 // principal sabe onde o Kobi é sólido, para ele chegar até a borda real das telas.
-const hitSampler = new HitSampler(canvas, {
-  region: (regions) => {
-    window.kobi.setInteractiveRegion(regions);
+const hitSampler = new HitSampler(
+  (width, height) => avatar.sampleCoverage(width, height),
+  {
+    region: (regions) => {
+      window.kobi.setInteractiveRegion(regions);
+    },
+    silhouette: (silhouette) => {
+      window.kobi.setSilhouette(silhouette);
+    },
   },
-  silhouette: (silhouette) => {
-    window.kobi.setSilhouette(silhouette);
+  (error) => {
+    console.error('[kobi] hit sampling failed', error);
   },
-});
+);
 
 /** Movimento que a janela está seguindo agora (voo do passeio ou deslizamento). */
 let motion: { readonly path: Trajectory; readonly startedAt: number } | undefined;
@@ -106,7 +113,10 @@ window.kobi.onStartTour(() => {
 
 // Diagnóstico: fps, tempo de quadro e o monitor atual.
 let display: CurrentDisplay | undefined;
+/** Se o Kobi mudou de monitor no último segundo (a travessia é medida à parte). */
+let crossed = false;
 window.kobi.onDisplayChanged((current) => {
+  crossed ||= display !== undefined;
   display = current;
 });
 window.kobi.onToggleDiagnostics(() => {
@@ -117,8 +127,10 @@ window.kobi.onToggleDiagnostics(() => {
 let lastPosition: Point = { x: window.screenX, y: window.screenY };
 let velocity: Point = { x: 0, y: 0 };
 let lastFrame = performance.now();
-const frameTimes: number[] = [];
+const frameStats = new FrameStats();
 let statsSince = performance.now();
+/** Modo de medição (spec 0002): o resumo de cada segundo vai para o stdout do app. */
+const bench = new URLSearchParams(location.search).has('bench');
 
 const loop = (nowMs: number): void => {
   const now = nowMs / 1000;
@@ -142,18 +154,25 @@ const loop = (nowMs: number): void => {
 
   const renderStart = performance.now();
   avatar.render(now);
-  frameTimes.push(performance.now() - renderStart);
+  frameStats.add(nowMs, performance.now() - renderStart);
   hitSampler.update(nowMs, window.innerWidth, window.innerHeight, avatar.settled);
 
   if (nowMs - statsSince >= 1000) {
-    const sorted = [...frameTimes].sort((a, b) => a - b);
-    const pick = (q: number): string =>
-      (sorted[Math.floor(q * (sorted.length - 1))] ?? 0).toFixed(1);
+    const stats = frameStats.take(display?.refreshRateHz ?? 60);
+    const ms = (value: number): string => value.toFixed(1);
     const monitor = display
       ? `${display.id} · ${String(display.scaleFactor)}× · ${String(Math.round(display.refreshRateHz))} Hz`
       : '?';
-    diagnostics.textContent = `${String(frameTimes.length)} fps · render p50 ${pick(0.5)} p95 ${pick(0.95)} p99 ${pick(0.99)} ms\n${monitor}`;
-    frameTimes.length = 0;
+    diagnostics.textContent =
+      `${String(stats.frames)} fps · ${String(stats.dropped)} perdidos\n` +
+      `intervalo p50 ${ms(stats.interval.p50)} p95 ${ms(stats.interval.p95)} máx ${ms(stats.interval.max)} ms\n` +
+      `render p50 ${ms(stats.render.p50)} p95 ${ms(stats.render.p95)} p99 ${ms(stats.render.p99)} ms\n` +
+      monitor;
+    if (bench)
+      console.log(
+        `[kobi-bench] ${JSON.stringify({ ...stats, display, crossed, moving: !!motion })}`,
+      );
+    crossed = false;
     statsSince = nowMs;
   }
   requestAnimationFrame(loop);

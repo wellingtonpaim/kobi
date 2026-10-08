@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 
+import { flipRows } from '../image/flip-rows.js';
 import { approach } from '../motion/approach.js';
 import { Blinker } from '../motion/blinker.js';
 import { Dust } from '../motion/dust.js';
@@ -47,6 +48,9 @@ export class KobiAvatar {
   private readonly leanAxis = new THREE.Vector3();
   private readonly dust: Dust;
   private readonly dustView: DustView;
+  /** Cópia minúscula da cena para saber onde o Kobi está visível, lida sem parar a animação. */
+  private readonly coverageTarget = new THREE.WebGLRenderTarget(1, 1);
+  private coveragePending = false;
   private dustFrame: DustFrame = {
     worldPerPixel: 0,
     bounds: { left: 0, right: 0, bottom: 0, top: 0 },
@@ -123,6 +127,28 @@ export class KobiAvatar {
   }
 
   /**
+   * Imagem RGBA (linhas de cima para baixo) do quadro recém-desenhado, reduzida a
+   * `width` × `height`. A leitura é assíncrona (PBO + fence do WebGL2): ler o canvas
+   * visível obrigaria a esperar a GPU e custava um quadro perdido a cada leitura.
+   * Chamar logo depois de `render`; devolve `undefined` se outra leitura ainda está em curso.
+   */
+  sampleCoverage(width: number, height: number): Promise<Uint8ClampedArray> | undefined {
+    if (this.coveragePending) return undefined;
+    this.coveragePending = true;
+    this.coverageTarget.setSize(width, height);
+    this.renderer.setRenderTarget(this.coverageTarget);
+    this.renderer.render(this.scene, this.camera);
+    this.renderer.setRenderTarget(null);
+    const pixels = new Uint8Array(width * height * 4);
+    return this.renderer
+      .readRenderTargetPixelsAsync(this.coverageTarget, 0, 0, width, height, pixels)
+      .then(() => flipRows(pixels, width, height))
+      .finally(() => {
+        this.coveragePending = false;
+      });
+  }
+
+  /**
    * Velocidade com que o Kobi está se deslocando na tela, em pixels CSS por
    * segundo (y para baixo). Ele vira para onde vai e inclina como um pêndulo.
    */
@@ -162,6 +188,7 @@ export class KobiAvatar {
     this.model.dispose();
     this.dustView.dispose(this.scene);
     this.studio.dispose();
+    this.coverageTarget.dispose();
     this.renderer.dispose();
   }
 }
