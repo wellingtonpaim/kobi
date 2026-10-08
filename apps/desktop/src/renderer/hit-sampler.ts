@@ -8,6 +8,12 @@ const SOLID_THRESHOLD = 128;
 const MARGIN = 3;
 const INTERVAL_MS = 100;
 
+/** Imagem RGBA reduzida do quadro atual (linhas de cima para baixo), lida sem bloquear; `undefined` se ocupada. */
+export type CoverageSource = (
+  width: number,
+  height: number,
+) => Promise<Uint8ClampedArray> | undefined;
+
 export interface SampleListeners {
   /** Áreas da janela que recebem o mouse. */
   readonly region: (regions: readonly Region[]) => void;
@@ -20,20 +26,17 @@ export interface SampleListeners {
  * onde ele está visível e onde é sólido. Só envia o que mudou.
  */
 export class HitSampler {
-  private readonly sample = document.createElement('canvas');
-  private readonly context: CanvasRenderingContext2D;
+  /** Estado mais recente: a leitura chega depois, e o Kobi pode ter começado a se mover. */
+  private settledNow = true;
   private lastSampleAt = Number.NEGATIVE_INFINITY;
   private lastRegion = '';
   private lastSilhouette = '';
 
   constructor(
-    private readonly source: HTMLCanvasElement,
+    private readonly source: CoverageSource,
     private readonly listeners: SampleListeners,
-  ) {
-    const context = this.sample.getContext('2d', { willReadFrequently: true });
-    if (!context) throw new Error('2D canvas unavailable');
-    this.context = context;
-  }
+    private readonly onError: (error: unknown) => void,
+  ) {}
 
   /**
    * Chamar a cada quadro, depois de desenhar o Kobi. No X11 a forma também recorta
@@ -41,26 +44,29 @@ export class HitSampler {
    * inteira fica ativa para nada aparecer cortado entre duas amostras.
    */
   update(nowMs: number, cssWidth: number, cssHeight: number, settled: boolean): void {
+    this.settledNow = settled;
     if (!settled) this.publishRegion([{ x: 0, y: 0, width: cssWidth, height: cssHeight }]);
     if (nowMs - this.lastSampleAt < INTERVAL_MS) return;
-    this.lastSampleAt = nowMs;
 
     const width = Math.ceil(cssWidth / CELL_SIZE);
     const height = Math.ceil(cssHeight / CELL_SIZE);
-    if (this.sample.width !== width || this.sample.height !== height) {
-      this.sample.width = width;
-      this.sample.height = height;
-    }
-    this.context.clearRect(0, 0, width, height);
-    this.context.drawImage(this.source, 0, 0, width, height);
-    const { data } = this.context.getImageData(0, 0, width, height);
+    const reading = this.source(width, height);
+    if (!reading) return;
+    this.lastSampleAt = nowMs;
+    reading
+      .then((data) => {
+        this.analyze(data, width, height);
+      })
+      .catch(this.onError);
+  }
 
+  private analyze(data: Uint8ClampedArray, width: number, height: number): void {
     const solid = opaqueBounds(data, width, height, {
       cellSize: CELL_SIZE,
       alphaThreshold: SOLID_THRESHOLD,
     });
     if (solid) this.publishSilhouette(solid);
-    if (settled) {
+    if (this.settledNow) {
       this.publishRegion(
         hitRegion(data, width, height, {
           cellSize: CELL_SIZE,

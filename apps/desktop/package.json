@@ -8,7 +8,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "build": "node scripts/build.mjs",
-    "start": "node scripts/build.mjs && node scripts/start.mjs"
+    "start": "node scripts/build.mjs && node scripts/start.mjs",
+    "bench": "node scripts/build.mjs && node scripts/bench.mjs"
   },
   "dependencies": {
     "@kobi/application": "workspace:*",

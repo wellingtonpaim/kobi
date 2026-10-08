@@ -11,6 +11,7 @@ import {
   type ScreenPoint,
   type TourPlan,
 } from '../shared/api.js';
+import { attachBenchMode, BENCH_SWITCH } from './bench-mode.js';
 import { ElectronDisplaySource } from './electron-display-source.js';
 import { X11OverlayWindow } from './x11-overlay-window.js';
 
@@ -56,20 +57,35 @@ const start = async (): Promise<void> => {
   const keepVisible = new KeepKobiVisible(overlay, displays);
   const planGlide = new PlanGlide(overlay, displays);
 
+  /** Layout em cache: o monitor do Kobi é conferido a cada movimento, sem reler o sistema. */
+  let layout = displays.current();
+  let reported: CurrentDisplay | undefined;
   /** Informa à interface em que monitor o Kobi está (escala e taxa de atualização em uso). */
   const reportDisplay = (): void => {
     const bounds = Rect.create(window.getBounds());
     if (!bounds.ok) return;
-    const current = displays.current().displayFor(bounds.value);
+    const current = layout.displayFor(bounds.value);
     const info: CurrentDisplay = {
       id: current.id,
       scaleFactor: current.scaleFactor,
       refreshRateHz: current.refreshRateHz,
     };
+    if (
+      reported?.id === info.id &&
+      reported.scaleFactor === info.scaleFactor &&
+      reported.refreshRateHz === info.refreshRateHz
+    )
+      return;
+    reported = info;
     window.webContents.send(CHANNELS.displayChanged, info);
+  };
+  // `moved` não dispara quando o próprio app chama setPosition (X11): cada movimento confere.
+  const moveTo = (point: ScreenPoint): void => {
+    overlay.moveTo(point).then(reportDisplay).catch(logFailure);
   };
 
   displays.onChange(() => {
+    layout = displays.current();
     keepVisible.execute().then(reportDisplay).catch(logFailure);
   });
 
@@ -82,7 +98,7 @@ const start = async (): Promise<void> => {
 
   let drag: { cursor: ScreenPoint; window: ScreenPoint } | undefined;
   ipcMain.on(CHANNELS.moveTo, (_, { x, y }: ScreenPoint) => {
-    overlay.moveTo({ x, y }).catch(logFailure);
+    moveTo({ x, y });
   });
   ipcMain.on(CHANNELS.dragStart, (_, cursor: ScreenPoint) => {
     const [x = 0, y = 0] = window.getPosition();
@@ -90,12 +106,10 @@ const start = async (): Promise<void> => {
   });
   ipcMain.on(CHANNELS.dragMove, (_, cursor: ScreenPoint) => {
     if (!drag) return;
-    overlay
-      .moveTo({
-        x: drag.window.x + cursor.x - drag.cursor.x,
-        y: drag.window.y + cursor.y - drag.cursor.y,
-      })
-      .catch(logFailure);
+    moveTo({
+      x: drag.window.x + cursor.x - drag.cursor.x,
+      y: drag.window.y + cursor.y - drag.cursor.y,
+    });
   });
   ipcMain.on(CHANNELS.dragEnd, () => {
     drag = undefined;
@@ -103,7 +117,7 @@ const start = async (): Promise<void> => {
   });
   ipcMain.handle(CHANNELS.planTour, (): TourPlan => {
     const [x = 0, y = 0] = window.getPosition();
-    return { stops: displays.current().tour(), windowSize: WINDOW_SIZE, start: { x, y } };
+    return { stops: layout.tour(), windowSize: WINDOW_SIZE, start: { x, y } };
   });
   ipcMain.handle(CHANNELS.planGlide, async (_, velocity: ScreenPoint): Promise<SampledPath> => {
     const glide = await planGlide.execute(velocity);
@@ -138,7 +152,21 @@ const start = async (): Promise<void> => {
   });
   window.on('moved', reportDisplay);
 
-  await window.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  const bench = process.argv.includes(BENCH_SWITCH);
+  if (bench)
+    attachBenchMode(window, {
+      visit: (index) => {
+        const stops = layout.tour();
+        const stop = stops[index % stops.length] ?? { x: 0, y: 0 };
+        moveTo({ x: stop.x - WINDOW_SIZE.width / 2, y: stop.y - WINDOW_SIZE.height / 2 });
+        return { display: layout.displayAt(stop)?.id ?? '?', of: stops.length };
+      },
+    });
+
+  await window.loadFile(
+    path.join(__dirname, 'renderer', 'index.html'),
+    bench ? { query: { bench: '1' } } : undefined,
+  );
   await new PlaceKobiOnStartup(overlay, displays).execute();
   window.showInactive();
   reportDisplay();
