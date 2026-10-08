@@ -1,4 +1,4 @@
-import type { ScreenPoint } from '../shared/api.js';
+import type { Point } from '@kobi/domain';
 
 /** Janela de tempo, antes de soltar, usada para medir a velocidade de saída. */
 const WINDOW_MS = 80;
@@ -7,9 +7,9 @@ const STILL_MS = 50;
 
 /** Velocidade do mouse nos últimos instantes do arraste, para o arremesso (spec 0005). */
 export class ReleaseTracker {
-  private samples: { readonly point: ScreenPoint; readonly at: number }[] = [];
+  private samples: { readonly point: Point; readonly at: number }[] = [];
 
-  add(point: ScreenPoint, atMs: number): void {
+  add(point: Point, atMs: number): void {
     this.samples.push({ point, at: atMs });
     this.samples = this.samples.filter((s) => atMs - s.at <= WINDOW_MS);
   }
@@ -19,7 +19,7 @@ export class ReleaseTracker {
   }
 
   /** Velocidade em px/s ao soltar; zero se o mouse parou antes ou se foi só um clique. */
-  velocityAt(releaseMs: number): ScreenPoint {
+  velocityAt(releaseMs: number): Point {
     const recent = this.samples.filter((s) => releaseMs - s.at <= WINDOW_MS);
     const first = recent[0];
     const last = recent.at(-1);

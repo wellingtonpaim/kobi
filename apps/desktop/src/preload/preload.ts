@@ -18,21 +18,17 @@ const bridge: KobiBridge = {
   setSilhouette: (silhouette: Region) => {
     ipcRenderer.send(CHANNELS.setSilhouette, silhouette);
   },
-  dragStart: (cursor: ScreenPoint) => {
-    ipcRenderer.send(CHANNELS.dragStart, cursor);
+  dragStart: () => {
+    ipcRenderer.send(CHANNELS.dragStart);
   },
-  dragMove: (cursor: ScreenPoint) => {
-    ipcRenderer.send(CHANNELS.dragMove, cursor);
+  dragMove: () => {
+    ipcRenderer.send(CHANNELS.dragMove);
   },
-  dragEnd: () => {
-    ipcRenderer.send(CHANNELS.dragEnd);
-  },
+  dragEnd: () => ipcRenderer.invoke(CHANNELS.dragEnd),
   showMenu: () => {
     ipcRenderer.send(CHANNELS.showMenu);
   },
   planTour: () => ipcRenderer.invoke(CHANNELS.planTour),
-  planGlide: (releaseVelocity: ScreenPoint) =>
-    ipcRenderer.invoke(CHANNELS.planGlide, releaseVelocity),
   onStartTour: (listener) =>
     ipcRenderer.on(CHANNELS.startTour, () => {
       listener();
@@ -44,6 +40,10 @@ const bridge: KobiBridge = {
   onDisplayChanged: (listener) =>
     ipcRenderer.on(CHANNELS.displayChanged, (_, display: CurrentDisplay) => {
       listener(display);
+    }),
+  onWindowMoved: (listener) =>
+    ipcRenderer.on(CHANNELS.windowMoved, (_, topLeft: ScreenPoint) => {
+      listener(topLeft);
     }),
 };
 

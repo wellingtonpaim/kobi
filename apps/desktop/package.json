@@ -5,6 +5,7 @@
   "license": "MIT",
   "type": "module",
   "main": "dist/main.cjs",
+  "desktopName": "io.github.wellingtonpaim.Kobi.desktop",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "build": "node scripts/build.mjs",
@@ -12,6 +13,7 @@
     "bench": "node scripts/build.mjs && node scripts/bench.mjs"
   },
   "dependencies": {
+    "@homebridge/dbus-native": "^0.7.9",
     "@kobi/application": "workspace:*",
     "@kobi/avatar": "workspace:*",
     "@kobi/domain": "workspace:*"

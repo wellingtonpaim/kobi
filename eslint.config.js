@@ -19,7 +19,20 @@ export default tseslint.config(
   },
   {
     files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
+    ignores: ['extensions/gnome/**'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // Extensão GNOME: roda no GJS do gnome-shell, não no Node.
+    files: ['extensions/gnome/**/*.js'],
+    languageOptions: {
+      globals: {
+        global: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
+    },
   },
   prettier,
 );

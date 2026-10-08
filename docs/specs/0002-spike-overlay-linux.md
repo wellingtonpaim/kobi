@@ -139,6 +139,8 @@ Esta spec é, ela própria, a primeira medição real do orçamento de `docs/per
 - **Domínio (Presença):** `Rect`, `Display`, `DisplayLayout` (monitor sob um ponto, mais próximo, o que contém a janela, `onScreen`/`keepOnScreen` pela silhueta, passeio), `Flight` (voo, spec 0004) e `Glide` (arremesso, spec 0005). Testes cobrem a matriz de monitores (`@kobi/domain/testing`).
 - **Aplicação:** portas `OverlayWindow` (posição, silhueta, região interativa) e `DisplaySource`; casos de uso `PlaceKobiOnStartup`, `KeepKobiVisible`, `PlanGlide`.
 - **Avatar:** v6 portado para three.js 0.186, idêntico ao protótipo (diferença média < 1/255, `packages/avatar/dev/capture.ts`); cores do corpo, giro, pêndulo e poeira (spec 0004); alça do fone com o dobro da espessura.
+- **Estratégia B (Wayland nativo + extensão GNOME) implementada**: extensão em `extensions/gnome/` (GPL-2.0-or-later, D-Bus `io.github.wellingtonpaim.Kobi.Overlay`) e adaptador `GnomeShellOverlayWindow`. Validada de ponta a ponta numa sessão GNOME 50 aninhada e headless com ponteiro virtual (`extensions/gnome/dev/interaction-test.sh`): transparência, acima e em todas as áreas de trabalho, posição inicial, clique atravessando, clique no corpo, arraste e arremesso entre monitores.
+- **Escolha da estratégia em tempo de execução:** `KOBI_OVERLAY=wayland` usa a B; se a extensão não estiver ativa, o app reabre via XWayland (estratégia A), sem falhar.
 - **Estratégia A (XWayland) implementada** em `apps/desktop`: janela transparente sempre acima em todas as áreas de trabalho, arrastar, girar (rodinha), menu (passeio de teste, diagnóstico, sair), arremesso, resgate após hotplug, clique atravessando fora do Kobi.
 
 ### Descobertas da estratégia A (entram no ADR)
@@ -153,6 +155,16 @@ Esta spec é, ela própria, a primeira medição real do orçamento de `docs/per
 - **O evento `moved` não dispara quando o próprio app chama `setPosition`** (X11): o monitor atual passou a ser conferido a cada movimento, com o layout em cache.
 - **No Wayland nativo o Electron informa `displayFrequency = 0`** em todos os monitores (cai em `UNKNOWN_REFRESH_FALLBACK`). A estratégia B precisa obter a taxa por outro caminho (extensão ou medida pelo intervalo do rAF).
 - O XWayland informa 59,88 Hz para o eDP-1, que o Mutter declara a 60,003 Hz.
+
+### Descobertas da estratégia B (entram no ADR)
+- **O Mutter restringe janelas Wayland comuns como as X11 comuns** (`move_frame` normal): mantém a janela inteira na faixa vertical de todos os monitores e abaixo do painel. Como operação do usuário (`move_frame(true, …)`), a restrição some, e a janela vai a qualquer posição. Quem mantém o Kobi visível é o domínio (`keepOnScreen`), como na A.
+- **`setShape` não vira região de entrada no Ozone Wayland:** o clique na área transparente continuava indo para o Kobi. **`setIgnoreMouseEvents(true)` funciona.** A extensão acompanha o ponteiro pelo `CursorTracker` do Mutter (evento, sem polling), confere a região interativa enviada pelo app e avisa só o Kobi (sinal D-Bus endereçado) quando o ponteiro entra ou sai dela; o app alterna `setIgnoreMouseEvents` e, durante o arraste, não solta o mouse. Diferente da A, o desenho não é recortado: a região de entrada é separada do desenho.
+- **No Wayland o Electron não sabe onde a janela está:** `getBounds()` fica na posição inicial e `screenX`/`screenY` valem 0; o ponteiro só é conhecido relativo à janela. Por isso a posição da janela agora vem do processo principal (após cada movimento) e o arraste e o arremesso leem o ponteiro global no processo principal (`screen.getCursorScreenPoint()` no X11, extensão no Wayland), igual nas duas estratégias.
+- **app_id:** vem do `desktopName` do `package.json` (`io.github.wellingtonpaim.Kobi.desktop` → `io.github.wellingtonpaim.Kobi`, o mesmo id previsto para o Flatpak); `--class` não vale no Wayland. A janela nasce com `wm_class` nulo e o app_id chega depois (`notify::wm-class`).
+- **A janela só existe para o compositor depois de aparecer:** a posição inicial é guardada e aplicada assim que a extensão enxerga a janela.
+- **D-Bus é rápido o bastante:** ida e volta média de 0,43 ms (1000 `MoveTo` seguidos); os movimentos se fundem no mais recente enquanto um está a caminho, sem fila.
+- **Visão geral:** o Kobi aparece como miniatura de janela dentro da área de trabalho, não flutuando por cima (observado na sessão aninhada; confirmar na sessão real).
+- Segurança: a extensão só age sobre a janela com o app_id do Kobi **e** do mesmo processo que chamou (PID do remetente D-Bus).
 
 ### Medições da estratégia A (2026-10-07)
 `pnpm --filter @kobi/desktop bench` (ambiente de referência, escala 1.0, app sem foco). CPU em % de um núcleo (média / p95 por segundo); a máquina tem 16 threads. GPU pelo `gpu_busy_percent` da Radeon integrada.
@@ -188,10 +200,12 @@ Leitura dos números:
 
 ### Falta
 1. **Fechar a estratégia A:** observações do Wellington sobre a hipótese 2 (por cima de janela maximizada, da Visão geral e de app em tela cheia); fluidez ao **arrastar** com o mouse (o painel de diagnóstico agora mostra intervalo entre quadros e quadros perdidos); casos da matriz ainda não testados (escala fracionária, monitor único, hotplug), rodando o `bench` em cada um.
-2. **Estratégia B:** Electron nativo no Wayland (`KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop start`) + extensão GNOME mínima em `extensions/gnome/` (GPL-2.0-or-later, D-Bus), implementando a porta `OverlayWindow`.
-3. **Comparar** as duas com a mesma tabela de medições e escrever o **ADR da estratégia de overlay no Linux**.
+2. **Medir a estratégia B na sessão real:** instalar a extensão na sessão do Wellington (exige sair e entrar de novo no GNOME), rodar `KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop bench` e as mesmas observações da A (hipótese 2, arraste, nitidez). A sessão aninhada valida o funcionamento, mas não serve para medir desempenho.
+3. **Pendência do teste automático:** com `KOBI_OVERLAY=x11 extensions/gnome/dev/interaction-test.sh`, o arremesso falha em ~1 de 4 execuções (velocidade de saída zerada; arraste, clique e posição inicial passam sempre). Na B passa sempre. Ver se é só tempo do ponteiro virtual no XWayland aninhado ou efeito de o arremesso agora ler o ponteiro no processo principal, e confirmar arremessando de verdade na sessão real.
+4. **Comparar** as duas com a mesma tabela de medições e escrever o **ADR da estratégia de overlay no Linux**.
 
 ### Como rodar
 - App: `pnpm --filter @kobi/desktop start` (estratégia A por padrão).
+- Estratégia B: `KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop start` (com a extensão ativa). Sessão aninhada e teste de interação: ver `extensions/gnome/README.md`.
 - Medições: `pnpm --filter @kobi/desktop bench` (~2,5 min; feche o Kobi antes e não mexa no computador). Linha de base sem o Kobi, parado em cada monitor e passeio contínuo; imprime as tabelas acima. Durações por `KOBI_BENCH_BASELINE`, `KOBI_BENCH_IDLE` (por monitor) e `KOBI_BENCH_TOUR`; `KOBI_OVERLAY=wayland` para a estratégia B.
 - Página do avatar, comparação com o v6 e playground de movimento: `pnpm --filter @kobi/avatar dev` → `http://localhost:5173/compare.html` e `/playground.html`.

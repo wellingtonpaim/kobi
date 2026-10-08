@@ -35,16 +35,18 @@ export interface KobiBridge {
   setInteractiveRegion(regions: readonly Region[]): void;
   /** Onde o Kobi aparece dentro da janela; é o que deve caber na tela. */
   setSilhouette(silhouette: Region): void;
-  dragStart(cursor: ScreenPoint): void;
-  dragMove(cursor: ScreenPoint): void;
-  dragEnd(): void;
+  /** O processo principal lê o ponteiro na tela inteira (no Wayland a interface não sabe). */
+  dragStart(): void;
+  dragMove(): void;
+  /** Se o Kobi foi solto em movimento, o deslizamento até ele parar (spec 0005). */
+  dragEnd(): Promise<SampledPath | undefined>;
   showMenu(): void;
   planTour(): Promise<TourPlan>;
-  /** Ao soltar o Kobi em movimento: o deslizamento até ele parar (spec 0005). */
-  planGlide(releaseVelocity: ScreenPoint): Promise<SampledPath>;
   onStartTour(listener: () => void): void;
   onToggleDiagnostics(listener: () => void): void;
   onDisplayChanged(listener: (display: CurrentDisplay) => void): void;
+  /** Canto superior esquerdo da janela após cada movimento. */
+  onWindowMoved(listener: (topLeft: ScreenPoint) => void): void;
 }
 
 export const CHANNELS = {
@@ -56,8 +58,8 @@ export const CHANNELS = {
   dragEnd: 'kobi:drag-end',
   showMenu: 'kobi:show-menu',
   planTour: 'kobi:plan-tour',
-  planGlide: 'kobi:plan-glide',
   startTour: 'kobi:start-tour',
   toggleDiagnostics: 'kobi:toggle-diagnostics',
   displayChanged: 'kobi:display-changed',
+  windowMoved: 'kobi:window-moved',
 } as const;

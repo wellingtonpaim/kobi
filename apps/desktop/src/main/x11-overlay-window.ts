@@ -1,18 +1,14 @@
-import type { OverlayWindow } from '@kobi/application';
 import { type Point, Rect, type RectProps } from '@kobi/domain';
 import type { BrowserWindow } from 'electron';
 
-/**
- * Pixel inteiro aceito pelo Electron. Somar 0 troca −0 por 0: o V8 não considera −0
- * um inteiro de 32 bits, e `Math.round(-0.3)` dá −0 perto da borda esquerda (x = 0).
- */
-const toPixel = (value: number): number => Math.round(value) + 0;
+import type { PlatformOverlay } from './platform-overlay.js';
+import { placeSilhouette, toPixel } from './window-geometry.js';
 
 /**
  * Estratégia A do spike (spec 0002): Electron via XWayland (`--ozone-platform=x11`).
  * No X11 a janela sabe a própria posição e pode se mover sozinha.
  */
-export class X11OverlayWindow implements OverlayWindow {
+export class X11OverlayWindow implements PlatformOverlay {
   /** Silhueta do Kobi relativa à janela; até a interface informar, vale a janela inteira. */
   private silhouetteOffset: RectProps | undefined;
 
@@ -23,17 +19,7 @@ export class X11OverlayWindow implements OverlayWindow {
   }
 
   silhouette(): Promise<Rect> {
-    const { x, y, width, height } = this.window.getBounds();
-    const offset = this.silhouetteOffset ?? { x: 0, y: 0, width, height };
-    const result = Rect.create({
-      x: x + offset.x,
-      y: y + offset.y,
-      width: offset.width,
-      height: offset.height,
-    });
-    return result.ok
-      ? Promise.resolve(result.value)
-      : Promise.reject(new Error('Kobi has no silhouette'));
+    return placeSilhouette(this.window.getBounds(), this.silhouetteOffset);
   }
 
   bounds(): Promise<Rect> {
@@ -49,6 +35,16 @@ export class X11OverlayWindow implements OverlayWindow {
     }
     this.window.setPosition(toPixel(x), toPixel(y));
     return Promise.resolve();
+  }
+
+  show(): Promise<void> {
+    this.window.showInactive();
+    return Promise.resolve();
+  }
+
+  /** No X11 a forma da janela já decide quem recebe o mouse; segurar não muda nada. */
+  holdPointer(): void {
+    // Nada a fazer.
   }
 
   /** Forma X11 da janela (extensão SHAPE): fora dela o clique vai para a janela de trás. */

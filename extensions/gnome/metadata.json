@@ -1,0 +1,8 @@
+{
+  "uuid": "kobi-overlay@wellingtonpaim.github.io",
+  "name": "Kobi Overlay",
+  "description": "Keeps the Kobi desktop companion above other windows and lets it move freely across monitors on Wayland. Only acts on Kobi's own window.",
+  "shell-version": ["50"],
+  "url": "https://github.com/wellingtonpaim/kobi",
+  "version-name": "0.1.0"
+}
