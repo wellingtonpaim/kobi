@@ -100,15 +100,22 @@ const start = async (): Promise<void> => {
   };
 
   const describeMonitors = (): string =>
-    `${layout.displays.map((d) => `${d.id} ${String(Math.round(d.refreshRateHz))} Hz ${String(d.scaleFactor)}×`).join(', ')}; principal: ${layout.primary.id}`;
+    `${layout.displays
+      .map(({ id, bounds: b, refreshRateHz, scaleFactor }) => {
+        const area = `${String(b.width)}×${String(b.height)}+${String(b.x)}+${String(b.y)}`;
+        return `${id} ${area} ${String(Math.round(refreshRateHz))} Hz ${String(scaleFactor)}×`;
+      })
+      .join(', ')}; principal: ${layout.primary.id}`;
+  const describe = ({ x, y }: Point): string => `(${String(x)}, ${String(y)})`;
   displays.onChange(() => {
     layout = displays.current();
     console.log(`[kobi] monitores mudaram: ${describeMonitors()}`);
-    keepVisible
-      .execute()
-      .then(topLeft)
-      .then(({ x, y }) => {
-        console.log(`[kobi] depois da mudança, janela em (${String(x)}, ${String(y)})`);
+    topLeft()
+      .then(async (before) => {
+        await keepVisible.execute();
+        console.log(
+          `[kobi] depois da mudança, janela em ${describe(await topLeft())} (antes ${describe(before)})`,
+        );
       })
       .catch(logFailure);
   });
