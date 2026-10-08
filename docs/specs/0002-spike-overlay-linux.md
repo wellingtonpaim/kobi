@@ -133,7 +133,7 @@ Para cada estratégia, registrar numa tabela no ADR, por caso da matriz testado:
 ## Desempenho
 Esta spec é, ela própria, a primeira medição real do orçamento de `docs/performance.md`. Os números obtidos substituem as metas iniciais onde fizer sentido, registrados no ADR.
 
-## Andamento (atualizado em 2026-10-07)
+## Andamento (atualizado em 2026-10-08)
 
 ### Feito
 - **Domínio (Presença):** `Rect`, `Display`, `DisplayLayout` (monitor sob um ponto, mais próximo, o que contém a janela, `onScreen`/`keepOnScreen` pela silhueta, passeio), `Flight` (voo, spec 0004) e `Glide` (arremesso, spec 0005). Testes cobrem a matriz de monitores (`@kobi/domain/testing`).
@@ -249,13 +249,31 @@ O protocolo Wayland não entrega aos apps informações que o domínio usa. Medi
 - **Taxa de atualização 0** em todos os monitores (cai em 60 Hz).
 **Resolvido com a extensão (versão 2):** `GetMonitors` devolve, por monitor, conector, geometria, área útil sem o painel, escala e principal (pelo Shell) e a taxa de atualização (pela interface D-Bus pública `org.gnome.Mutter.DisplayConfig`, cruzada pelo conector); o sinal `MonitorsChanged` avisa hotplug, escala, disposição e área útil, sem polling. No app, `GnomeShellDisplaySource` implementa a porta `DisplaySource` com esses dados (ids = conectores). Com a extensão na versão 1, o app segue com a API `screen` do Electron e avisa no log. Validado na sessão aninhada; falta conferir na sessão real.
 
-### Falta
-1. **Fechar a estratégia A:** observações do Wellington sobre a hipótese 2 (por cima de janela maximizada, da Visão geral e de app em tela cheia); fluidez ao **arrastar** com o mouse (o painel de diagnóstico agora mostra intervalo entre quadros e quadros perdidos); casos da matriz ainda não testados (escala fracionária, monitor único, hotplug), rodando o `bench` em cada um.
-2. **Medir a estratégia B na sessão real:** instalar a extensão na sessão do Wellington (exige sair e entrar de novo no GNOME), rodar `KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop bench` e as mesmas observações da A (hipótese 2, arraste, nitidez). A sessão aninhada valida o funcionamento, mas não serve para medir desempenho.
-3. **Comparar** as duas com a mesma tabela de medições e escrever o **ADR da estratégia de overlay no Linux**.
+### Teste guiado na sessão real (em andamento)
+O Wellington executa cada passo e conta o que viu; o Claude confere pelo log do app (`[kobi] …`). Um passo por vez, respostas simples ("ok" ou o que foi diferente).
+
+Estratégia B (Wayland + extensão), feitos em 2026-10-08:
+| Passo | Resultado |
+|---|---|
+| 1. Onde aparece | ok: canto inferior direito do eDP-1 (principal), nítido, fundo transparente, 60 fps |
+| 2. Clique atravessa | ok depois da correção da extensão v3 (antes: depois de passar sobre o corpo, a área transparente segurava o clique) |
+| 3. Arrastar entre os monitores | ok: colado ao cursor, solta onde parou, painel troca de monitor e fps |
+| 4. Arremessar | ok: freia suave, atravessa monitores, não some, pega no ar (velocidades de ~300 a ~18.800 px/s no log) |
+| 5. Janela maximizada em foco | ok: continua por cima |
+| 6A. Visão geral | miniatura ao lado das outras janelas; volta ao mesmo lugar |
+| 6B. Trocar de área de trabalho | falhou e foi corrigido (commit `99d22cc`): o GNOME prendia o Kobi à área ativa ao voltar ao principal. **Falta reinstalar a extensão (`extensions/gnome/dev/install.sh`), sair e entrar no GNOME e refazer o 6B.** |
+
+Próximos passos do teste guiado:
+1. **Passo 7 — tela cheia** (estratégia B): vídeo em tela cheia (F ou F11) no notebook e num externo; o Kobi fica por cima ou some? Volta ao mesmo lugar? (No produto ele deve se esconder; aqui é só observar.)
+2. Reinstalar a extensão, novo login e refazer o **6B**.
+3. **Mesmos passos 1–7 na estratégia A** (`pnpm --filter @kobi/desktop start -- --kobi-diagnostics`, ou o comando de "Como rodar").
+4. **Casos da matriz** (em cada um, `bench` + observação): escala fracionária (um monitor a 125% em Configurações → Telas), só o notebook (desconectar os externos), hotplug (desconectar e reconectar o monitor onde o Kobi está, com o app aberto; o log mostra `[kobi] monitores mudaram` e a posição depois do resgate).
+5. **Comparar** as duas estratégias e escrever o **ADR da estratégia de overlay no Linux** (em `docs/adr/`), com as tabelas, as descobertas, os casos pendentes e as consequências para as outras plataformas.
 
 ### Como rodar
 - App: `pnpm --filter @kobi/desktop start` (estratégia A por padrão).
 - Estratégia B: `KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop start` (com a extensão ativa). Sessão aninhada e teste de interação: ver `extensions/gnome/README.md`.
+- Teste guiado: abrir com o painel de diagnóstico desde o início e guardar o log, por exemplo `cd apps/desktop && node_modules/.bin/electron . --ozone-platform=wayland --kobi-diagnostics > /tmp/diario.log 2>&1` (rodar com `env -u ELECTRON_RUN_AS_NODE` no terminal do VS Code). O log mostra monitores lidos, mudanças de monitor, resgate e cada soltar com a velocidade.
+- Teste automático de interação nas duas estratégias: `pnpm --filter @kobi/desktop build && extensions/gnome/dev/interaction-test.sh` (B) e `KOBI_OVERLAY=x11 extensions/gnome/dev/interaction-test.sh` (A).
 - Medições: `pnpm --filter @kobi/desktop bench` (inclui memória por fase: início, fim, máximo e variação por minuto) (~2,5 min; feche o Kobi antes e não mexa no computador). Linha de base sem o Kobi, parado em cada monitor e passeio contínuo; imprime as tabelas acima. Durações por `KOBI_BENCH_BASELINE`, `KOBI_BENCH_IDLE` (por monitor) e `KOBI_BENCH_TOUR`; `KOBI_OVERLAY=wayland` para a estratégia B.
 - Página do avatar, comparação com o v6 e playground de movimento: `pnpm --filter @kobi/avatar dev` → `http://localhost:5173/compare.html` e `/playground.html`.
