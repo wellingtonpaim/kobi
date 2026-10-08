@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ReleaseTracker } from '../src/renderer/release-tracker.js';
+import { ReleaseTracker } from '../src/main/release-tracker.js';
 
 /** Arrasta em linha reta, a uma velocidade (px/s), registrando uma amostra a cada `everyMs`. */
 const drag = (

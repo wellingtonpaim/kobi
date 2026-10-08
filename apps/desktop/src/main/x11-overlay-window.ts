@@ -1,20 +1,19 @@
-import type { OverlayWindow } from '@kobi/application';
 import { type Point, Rect, type RectProps } from '@kobi/domain';
 import type { BrowserWindow } from 'electron';
 
-/**
- * Pixel inteiro aceito pelo Electron. Somar 0 troca −0 por 0: o V8 não considera −0
- * um inteiro de 32 bits, e `Math.round(-0.3)` dá −0 perto da borda esquerda (x = 0).
- */
-const toPixel = (value: number): number => Math.round(value) + 0;
+import type { PlatformOverlay } from './platform-overlay.js';
+import { placeSilhouette, toPixel } from './window-geometry.js';
 
 /**
  * Estratégia A do spike (spec 0002): Electron via XWayland (`--ozone-platform=x11`).
  * No X11 a janela sabe a própria posição e pode se mover sozinha.
  */
-export class X11OverlayWindow implements OverlayWindow {
+export class X11OverlayWindow implements PlatformOverlay {
   /** Silhueta do Kobi relativa à janela; até a interface informar, vale a janela inteira. */
   private silhouetteOffset: RectProps | undefined;
+  /** Região interativa mais recente, reaplicada quando o usuário solta o Kobi. */
+  private region: readonly RectProps[] | undefined;
+  private held = false;
 
   constructor(private readonly window: BrowserWindow) {}
 
@@ -23,17 +22,7 @@ export class X11OverlayWindow implements OverlayWindow {
   }
 
   silhouette(): Promise<Rect> {
-    const { x, y, width, height } = this.window.getBounds();
-    const offset = this.silhouetteOffset ?? { x: 0, y: 0, width, height };
-    const result = Rect.create({
-      x: x + offset.x,
-      y: y + offset.y,
-      width: offset.width,
-      height: offset.height,
-    });
-    return result.ok
-      ? Promise.resolve(result.value)
-      : Promise.reject(new Error('Kobi has no silhouette'));
+    return placeSilhouette(this.window.getBounds(), this.silhouetteOffset);
   }
 
   bounds(): Promise<Rect> {
@@ -51,8 +40,32 @@ export class X11OverlayWindow implements OverlayWindow {
     return Promise.resolve();
   }
 
+  show(): Promise<void> {
+    this.window.showInactive();
+    return Promise.resolve();
+  }
+
+  /** No X11 a forma da janela já decide quem recebe o mouse; segurar não muda nada. */
+  /**
+   * Enquanto o Kobi está seguro, a janela inteira recebe o mouse: num arremesso rápido o
+   * ponteiro sai da silhueta antes de a janela alcançá-lo, e o soltar se perderia (o Kobi
+   * ficaria preso ao mouse). Medido no teste de interação do spike.
+   */
+  holdPointer(held: boolean): void {
+    this.held = held;
+    const { width, height } = this.window.getBounds();
+    this.applyShape(held ? [{ x: 0, y: 0, width, height }] : this.region);
+  }
+
   /** Forma X11 da janela (extensão SHAPE): fora dela o clique vai para a janela de trás. */
   setInteractiveRegion(regions: readonly RectProps[]): Promise<void> {
+    this.region = regions;
+    if (!this.held) this.applyShape(regions);
+    return Promise.resolve();
+  }
+
+  private applyShape(regions: readonly RectProps[] | undefined): void {
+    if (!regions) return;
     this.window.setShape(
       regions.map((r) => ({
         x: toPixel(r.x),
@@ -61,6 +74,5 @@ export class X11OverlayWindow implements OverlayWindow {
         height: toPixel(r.height),
       })),
     );
-    return Promise.resolve();
   }
 }

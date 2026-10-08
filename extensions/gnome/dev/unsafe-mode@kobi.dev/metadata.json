@@ -1,0 +1,6 @@
+{
+  "uuid": "unsafe-mode@kobi.dev",
+  "name": "Kobi dev: unsafe mode",
+  "description": "Development only, loaded just in the isolated nested session: enables Shell unsafe mode (Eval, screenshots) for automated tests. Never install it in a real session.",
+  "shell-version": ["50"]
+}
