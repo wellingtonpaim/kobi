@@ -157,6 +157,11 @@ Esta spec é, ela própria, a primeira medição real do orçamento de `docs/per
 - **O evento `moved` não dispara quando o próprio app chama `setPosition`** (X11): o monitor atual passou a ser conferido a cada movimento, com o layout em cache.
 - **No Wayland nativo o Electron informa `displayFrequency = 0`** em todos os monitores (cai em `UNKNOWN_REFRESH_FALLBACK`). A estratégia B precisa obter a taxa por outro caminho (extensão ou medida pelo intervalo do rAF).
 - O XWayland informa 59,88 Hz para o eDP-1, que o Mutter declara a 60,003 Hz.
+- **Escala fracionária leva o XWayland inteiro a 2×** (GNOME 50, escala nativa do XWayland): com o eDP-1 a 125%, as coordenadas X11 dobram (o eDP-1 vira 3072×1920 no `xrandr`, `Xft.dpi` 192) e o Electron vê **todos** os monitores a 2×, inclusive os de 100%. Consequências medidas:
+  - **O Kobi encolhe à metade em todos os monitores:** a janela X11 mantém o tamanho em pixels (300×400), que a 2× valem 150×200 lógicos. Corrigível no app (refazer o tamanho lógico quando a escala muda), ainda não feito.
+  - **O GNOME move a janela X11 para outro monitor quando a escala do XWayland muda:** preserva a posição relativa (≈43% × 31% antes e depois), mas no monitor errado (centro do monitor da esquerda numa vez, do da direita em outra). Medido com a posição real da janela X11 lida a cada 100 ms e com o log do app: no primeiro aviso de mudança a janela já estava no outro monitor, e o resgate (`KeepKobiVisible`) não a moveu. Contornável só no app, lembrando o monitor e a posição relativa e voltando para eles; ainda não feito.
+  - **Custo de 4× pixels também nos monitores de 100%,** mais a redução feita pelo compositor: tabela de 125% acima.
+  - Na B nada disso acontece: cada monitor tem a própria escala, e o GNOME mantém a janela Wayland no mesmo lugar ao mudar a escala.
 - **Visão geral:** a janela `dock` some enquanto a visão geral está aberta (nos três monitores) e volta ao mesmo lugar; na B o Kobi vira miniatura ao lado das outras janelas (teste guiado, passo 6A).
 - **O painel de diagnóstico era recortado pela forma X11** (achado do Wellington no teste guiado): aparecia só onde encostava na silhueta, e o pedaço oscilava com a flutuação. Tudo que a janela desenha fora do Kobi (hoje o painel; no futuro balão e menu, se ficarem na mesma janela) precisa entrar na forma, e ali o clique também deixa de atravessar. A porta da plataforma ganhou `revealArea`, que no Wayland não faz nada.
 
@@ -279,8 +284,24 @@ Estratégia A (XWayland), mesmos passos, feitos em 2026-10-08:
 | 6B. Trocar de área de trabalho | ok, indo e voltando dos monitores da esquerda e da direita |
 | 7. Tela cheia | por cima do vídeo nos três monitores, sem sair do lugar (igual à B) |
 
-Estratégias A e B concluídas (passos 1 a 7). Próximos passos do teste guiado:
-1. **Casos da matriz** (em cada um, `bench` + observação): escala fracionária (um monitor a 125% em Configurações → Telas), só o notebook (desconectar os externos), hotplug (desconectar e reconectar o monitor onde o Kobi está, com o app aberto; o log mostra `[kobi] monitores mudaram` e a posição depois do resgate).
+Casos da matriz, feitos em 2026-10-08:
+| Caso | A (XWayland) | B (Wayland + extensão) |
+|---|---|---|
+| Escala fracionária (eDP-1 a 125%, externos a 100%) | **encolhe** à metade em todos os monitores e **salta para o centro de um monitor externo** a cada mudança de escala (ver descobertas da A); custo quase dobra nos externos (tabela abaixo) | ok: tamanho certo e nítido em cada monitor (1,25× e 1×), arraste colado na travessia entre escalas diferentes; ao mudar a escala com o app aberto, continua no mesmo lugar e o tamanho acompanha a escala |
+
+Medições a 125% (`bench`, % de um núcleo, média; GPU em %):
+
+| Fase | A: Kobi | A: gnome-shell | A: Xwayland | A: GPU | B: Kobi | B: gnome-shell | B: GPU |
+|---|---|---|---|---|---|---|---|
+| parado · DVI-I-2 (100 Hz, 1×) | 62,3 | 21,2 | 2,9 | 77,3 | 36,9 | 14,4 | 43,3 |
+| parado · eDP-1 (60 Hz, 1,25×) | 28,3 | 9,3 | 1,3 | 44,7 | 24,1 | 9,3 | 32,1 |
+| parado · HDMI-1 (100 Hz, 1×) | 64,0 | 19,8 | 3,0 | 78,1 | 34,7 | 12,7 | 43,8 |
+| passeio | 65,6 | 26,4 | 12,8 | 65,2 | 40,3 | 18,9 | 38,2 |
+
+Fluidez: as duas mantêm a taxa cheia de cada monitor; a A perde 3 a 5 quadros a cada 15 s (intervalo máximo até 36,6 ms), a B até 2 (máximo 33,4 ms). Memória: ~300 MiB nas duas. Na B os números são os mesmos de 100%; na A o custo quase dobra nos externos **com o Kobi encolhido à metade** (o mesmo número de pixels de antes); no tamanho certo seriam 4× mais pixels.
+
+Próximos passos do teste guiado:
+1. **Casos da matriz** restantes (em cada um, `bench` + observação): só o notebook (desconectar os externos), hotplug (desconectar e reconectar o monitor onde o Kobi está, com o app aberto; o log mostra `[kobi] monitores mudaram` e a posição depois do resgate).
 2. **Comparar** as duas estratégias e escrever o **ADR da estratégia de overlay no Linux** (em `docs/adr/`), com as tabelas, as descobertas, os casos pendentes e as consequências para as outras plataformas.
 
 ### Como rodar
