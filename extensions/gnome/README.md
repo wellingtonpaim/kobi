@@ -20,6 +20,10 @@ Licença **GPL-2.0-or-later** (arquivo `LICENSE` nesta pasta), separada do resto
 
 Nome e interface `io.github.wellingtonpaim.Kobi.Overlay`, objeto `/io/github/wellingtonpaim/Kobi/Overlay`, barramento da sessão. Métodos `MoveTo`, `GetFrame`, `GetPointer` e `SetInteractiveRegion`, sinal `PointerInside` e propriedade `Version` (o app só usa versões que conhece). Detalhes em `extension.js`.
 
+## Instalar na sua sessão
+
+`extensions/gnome/dev/install.sh` empacota e instala a extensão no formato do site de extensões (só os arquivos de produção) e a deixa ativa. No Wayland o GNOME só carrega extensões novas depois de **sair e entrar de novo**. Para remover: `extensions/gnome/dev/install.sh --remove`.
+
 ## Desenvolvimento
 
 - `dev/nested-session.sh`: sessão GNOME aninhada e isolada (dconf, extensões e D-Bus próprios), com a extensão carregada direto desta pasta. Por padrão abre a janela do devkit com dois monitores virtuais; `KOBI_NESTED_MODE=headless` roda sem janela e `KOBI_NESTED_MONITORS="1920x1080 3840x2160"` escolhe os monitores. Para abrir o Kobi dentro dela: `source "$XDG_RUNTIME_DIR/kobi-nested/env" && KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop start`.
