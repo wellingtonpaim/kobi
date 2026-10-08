@@ -178,7 +178,7 @@ const loop = (nowMs: number): void => {
       monitor;
     if (bench)
       console.log(
-        `[kobi-bench] ${JSON.stringify({ ...stats, display, crossed, moving: !!motion })}`,
+        `[kobi-bench] ${JSON.stringify({ ...stats, display, position: windowPosition, crossed, moving: !!motion })}`,
       );
     crossed = false;
     statsSince = nowMs;
