@@ -9,4 +9,9 @@ export interface PlatformOverlay extends OverlayWindow {
   show(): Promise<void>;
   /** Enquanto o usuário segura o Kobi, a janela não solta o mouse. */
   holdPointer(held: boolean): void;
+  /**
+   * Parte da janela que precisa aparecer além do Kobi (o painel de diagnóstico), ou
+   * `undefined` para nenhuma. Só importa onde a forma da janela também recorta o desenho.
+   */
+  revealArea(area: RectProps | undefined): void;
 }

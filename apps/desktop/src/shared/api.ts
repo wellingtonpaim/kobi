@@ -35,6 +35,8 @@ export interface KobiBridge {
   setInteractiveRegion(regions: readonly Region[]): void;
   /** Onde o Kobi aparece dentro da janela; é o que deve caber na tela. */
   setSilhouette(silhouette: Region): void;
+  /** Onde está o painel de diagnóstico na janela, ou `undefined` se fechado. */
+  setDiagnosticsArea(area: Region | undefined): void;
   /**
    * `cursor`: coordenadas de tela do evento. Valem no X11; no Wayland a interface não
    * sabe onde está na tela, e o processo principal pergunta à extensão GNOME.
@@ -56,6 +58,7 @@ export const CHANNELS = {
   moveTo: 'kobi:move-to',
   setInteractiveRegion: 'kobi:set-interactive-region',
   setSilhouette: 'kobi:set-silhouette',
+  setDiagnosticsArea: 'kobi:set-diagnostics-area',
   dragStart: 'kobi:drag-start',
   dragMove: 'kobi:drag-move',
   dragEnd: 'kobi:drag-end',

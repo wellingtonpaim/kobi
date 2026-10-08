@@ -116,6 +116,9 @@ const start = async (): Promise<void> => {
   ipcMain.on(CHANNELS.setSilhouette, (_, silhouette: Region) => {
     overlay.reportSilhouette(silhouette);
   });
+  ipcMain.on(CHANNELS.setDiagnosticsArea, (_, area: Region | undefined) => {
+    overlay.revealArea(area ?? undefined);
+  });
   ipcMain.on(CHANNELS.setInteractiveRegion, (_, regions: Region[]) => {
     overlay.setInteractiveRegion(regions).catch(logFailure);
   });

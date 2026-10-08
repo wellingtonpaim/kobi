@@ -109,6 +109,11 @@ export class GnomeShellOverlayWindow implements PlatformOverlay {
     this.applyMouse();
   }
 
+  /** No Wayland a região de entrada é separada do desenho: a janela já aparece inteira. */
+  revealArea(): void {
+    // Nada a fazer.
+  }
+
   private async send(): Promise<void> {
     this.sending = true;
     while (this.pending) {

@@ -70,4 +70,24 @@ describe('X11OverlayWindow', () => {
     overlay.holdPointer(false);
     expect(shapes.at(-1)).toEqual([{ x: 0, y: 0, width: 1, height: 1 }]);
   });
+
+  it('keeps the diagnostics panel visible, since the X11 shape also clips what is drawn', async () => {
+    const { window, shapes } = fakeWindow();
+    const overlay = new X11OverlayWindow(window);
+    const kobi = { x: 10, y: 20, width: 30, height: 40 };
+    const panel = { x: 6, y: 330, width: 250.5, height: 64 };
+    await overlay.setInteractiveRegion([kobi]);
+
+    overlay.revealArea(panel);
+    expect(shapes.at(-1)).toEqual([kobi, { x: 6, y: 330, width: 251, height: 64 }]);
+
+    await overlay.setInteractiveRegion([{ x: 0, y: 0, width: 1, height: 1 }]);
+    expect(shapes.at(-1)).toEqual([
+      { x: 0, y: 0, width: 1, height: 1 },
+      { x: 6, y: 330, width: 251, height: 64 },
+    ]);
+
+    overlay.revealArea(undefined);
+    expect(shapes.at(-1)).toEqual([{ x: 0, y: 0, width: 1, height: 1 }]);
+  });
 });
