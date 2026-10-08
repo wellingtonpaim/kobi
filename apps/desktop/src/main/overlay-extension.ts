@@ -1,10 +1,31 @@
 import dbus from '@homebridge/dbus-native';
 import type { Point, RectProps } from '@kobi/domain';
 
+/** Um monitor como o GNOME o vê (pixels lógicos globais). */
+export interface ExtensionMonitor {
+  /** Nome do conector (eDP-1, HDMI-1...): estável e único enquanto o monitor existir. */
+  readonly connector: string;
+  readonly bounds: RectProps;
+  /** Sem o painel superior e outras áreas reservadas pelo GNOME. */
+  readonly workArea: RectProps;
+  readonly scaleFactor: number;
+  /** 0 quando o GNOME não informa. */
+  readonly refreshRateHz: number;
+  readonly primary: boolean;
+}
+
+/** Versões da interface da extensão: o que cada uma acrescentou. */
+export const EXTENSION_VERSIONS = {
+  /** Janela, ponteiro e região interativa. */
+  overlay: 1,
+  /** GetMonitors e MonitorsChanged. */
+  monitors: 2,
+} as const;
+
 /** O que a extensão GNOME do Kobi oferece (extensions/gnome, interface D-Bus). */
 export interface OverlayExtension {
-  /** Se a extensão está instalada, ativa e numa versão compatível. */
-  available(): Promise<boolean>;
+  /** Versão da interface; 0 se a extensão não está instalada ou ativa. */
+  version(): Promise<number>;
   /** false se a janela do Kobi ainda não existe para o compositor. */
   moveTo(topLeft: Point): Promise<boolean>;
   frame(): Promise<RectProps | undefined>;
@@ -12,13 +33,14 @@ export interface OverlayExtension {
   setInteractiveRegion(regions: readonly RectProps[]): Promise<boolean>;
   /** Avisado quando o ponteiro entra ou sai da região interativa. */
   onPointerInside(listener: (inside: boolean) => void): void;
+  /** A partir da versão 2. */
+  monitors(): Promise<ExtensionMonitor[]>;
+  /** Monitores, escala, disposição ou área útil mudaram (a partir da versão 2). */
+  onMonitorsChanged(listener: () => void): void;
 }
 
 const BUS_NAME = 'io.github.wellingtonpaim.Kobi.Overlay';
 const OBJECT_PATH = '/io/github/wellingtonpaim/Kobi/Overlay';
-/** Versão da interface que este adaptador entende (propriedade Version da extensão). */
-const SUPPORTED_VERSION = 1;
-
 interface Message {
   readonly destination?: string;
   readonly path: string;
@@ -44,16 +66,17 @@ const SIGNAL = 4;
 /** Cliente D-Bus da extensão, no barramento da sessão do usuário. */
 export class DbusOverlayExtension implements OverlayExtension {
   private bus: MessageBus | undefined;
-  private readonly listeners: ((inside: boolean) => void)[] = [];
+  private readonly pointerListeners: ((inside: boolean) => void)[] = [];
+  private readonly monitorListeners: (() => void)[] = [];
 
-  available(): Promise<boolean> {
-    if (!process.env.DBUS_SESSION_BUS_ADDRESS) return Promise.resolve(false);
+  version(): Promise<number> {
+    if (!process.env.DBUS_SESSION_BUS_ADDRESS) return Promise.resolve(0);
     return this.call('org.freedesktop.DBus.Properties', 'Get', 'ss', [BUS_NAME, 'Version'])
       .then(([variant]) => {
         const [, [version]] = variant as [unknown, [number]];
-        return version === SUPPORTED_VERSION;
+        return version;
       })
-      .catch(() => false);
+      .catch(() => 0);
   }
 
   async moveTo({ x, y }: Point): Promise<boolean> {
@@ -83,7 +106,41 @@ export class DbusOverlayExtension implements OverlayExtension {
   }
 
   onPointerInside(listener: (inside: boolean) => void): void {
-    this.listeners.push(listener);
+    this.pointerListeners.push(listener);
+  }
+
+  async monitors(): Promise<ExtensionMonitor[]> {
+    type Rect4 = [number, number, number, number];
+    const [list] = (await this.call(BUS_NAME, 'GetMonitors', '', [])) as [
+      [string, Rect4, Rect4, number, number, boolean][],
+    ];
+    const rect = ([x, y, width, height]: Rect4): RectProps => ({ x, y, width, height });
+    return list.map(([connector, bounds, workArea, scaleFactor, refreshRateHz, primary]) => ({
+      connector,
+      bounds: rect(bounds),
+      workArea: rect(workArea),
+      scaleFactor,
+      refreshRateHz,
+      primary,
+    }));
+  }
+
+  onMonitorsChanged(listener: () => void): void {
+    // Sinal para todo o barramento: só chega com uma regra de correspondência.
+    if (this.monitorListeners.length === 0) {
+      const rule = `type='signal',sender='${BUS_NAME}',interface='${BUS_NAME}',member='MonitorsChanged'`;
+      this.invoke(
+        'org.freedesktop.DBus',
+        '/org/freedesktop/DBus',
+        'org.freedesktop.DBus',
+        'AddMatch',
+        's',
+        [rule],
+      ).catch((error: unknown) => {
+        console.error('[kobi] D-Bus', error);
+      });
+    }
+    this.monitorListeners.push(listener);
   }
 
   private call(
@@ -92,10 +149,21 @@ export class DbusOverlayExtension implements OverlayExtension {
     signature: string,
     body: readonly unknown[],
   ): Promise<unknown[]> {
+    return this.invoke(BUS_NAME, OBJECT_PATH, iface, member, signature, body);
+  }
+
+  private invoke(
+    destination: string,
+    path: string,
+    iface: string,
+    member: string,
+    signature: string,
+    body: readonly unknown[],
+  ): Promise<unknown[]> {
     const bus = this.connect();
     return new Promise((resolve, reject) => {
       bus.invoke(
-        { destination: BUS_NAME, path: OBJECT_PATH, interface: iface, member, signature, body },
+        { destination, path, interface: iface, member, signature, body },
         (error, ...values) => {
           if (error) reject(new Error(`${member} failed: ${JSON.stringify(error)}`));
           else resolve(values);
@@ -107,11 +175,15 @@ export class DbusOverlayExtension implements OverlayExtension {
   private connect(): MessageBus {
     if (this.bus) return this.bus;
     const bus = (dbus as unknown as { sessionBus(): MessageBus }).sessionBus();
-    // O sinal vem endereçado só a esta conexão: não precisa de regra de correspondência.
     bus.connection.on('message', (message) => {
-      if (message.type !== SIGNAL || message.member !== 'PointerInside') return;
-      const inside = message.body?.[0] === true;
-      for (const listener of this.listeners) listener(inside);
+      if (message.type !== SIGNAL || message.interface !== BUS_NAME) return;
+      // PointerInside vem endereçado só a esta conexão.
+      if (message.member === 'PointerInside') {
+        const inside = message.body?.[0] === true;
+        for (const listener of this.pointerListeners) listener(inside);
+      }
+      if (message.member === 'MonitorsChanged')
+        for (const listener of this.monitorListeners) listener();
     });
     bus.connection.on('error', (error) => {
       console.error('[kobi] D-Bus', error);

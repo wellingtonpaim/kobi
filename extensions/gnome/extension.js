@@ -6,6 +6,7 @@ import GLib from 'gi://GLib';
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
+import { currentRefreshRates } from './monitors.js';
 import { pointerInRegions } from './region.js';
 
 Gio._promisify(Gio.DBusConnection.prototype, 'call');
@@ -40,10 +41,18 @@ const INTERFACE = `
     <signal name="PointerInside">
       <arg type="b" name="inside"/>
     </signal>
+    <!-- Monitores como o GNOME os vê, o que o Electron não sabe no Wayland: conector,
+         geometria e área útil (sem o painel) em pixels lógicos, escala, taxa de
+         atualização (0 se desconhecida) e se é o principal. -->
+    <method name="GetMonitors">
+      <arg type="a(s(iiii)(iiii)ddb)" name="monitors" direction="out"/>
+    </method>
+    <!-- Monitores, escala, disposição ou área útil mudaram. -->
+    <signal name="MonitorsChanged"/>
     <property name="Version" type="u" access="read"/>
   </interface>
 </node>`;
-const VERSION = 1;
+const VERSION = 2;
 
 /** app_id da janela do Kobi no Wayland (vem do `desktopName` do app). */
 const KOBI_APP_ID = 'io.github.wellingtonpaim.Kobi';
@@ -78,9 +87,16 @@ export default class KobiOverlayExtension extends Extension {
       this._watch(window);
     });
     for (const actor of global.get_window_actors()) this._watch(actor.get_meta_window());
+    const monitorsChanged = () => this._service.emit_signal('MonitorsChanged', null);
+    this._monitorsChangedId = global.backend
+      .get_monitor_manager()
+      .connect('monitors-changed', monitorsChanged);
+    this._workareasChangedId = global.display.connect('workareas-changed', monitorsChanged);
   }
 
   disable() {
+    global.backend.get_monitor_manager().disconnect(this._monitorsChangedId);
+    global.display.disconnect(this._workareasChangedId);
     global.display.disconnect(this._windowCreatedId);
     for (const stop of [...this._watches]) stop();
     this._stopListening();
@@ -129,6 +145,52 @@ export default class KobiOverlayExtension extends Extension {
       this._updatePointer();
       return [true];
     });
+  }
+
+  GetMonitorsAsync(_, invocation) {
+    this._reply(invocation, '(a(s(iiii)(iiii)ddb))', async () => {
+      const rates = await this._refreshRates();
+      const display = global.display;
+      const workspace = global.workspace_manager.get_active_workspace();
+      const rect = (r) => [r.x, r.y, r.width, r.height];
+      const monitors = global.backend
+        .get_monitor_manager()
+        .get_logical_monitors()
+        .map((logical) => {
+          const index = logical.get_number();
+          const connector = logical.get_monitors()[0]?.get_connector() ?? `monitor-${index}`;
+          return [
+            connector,
+            rect(display.get_monitor_geometry(index)),
+            rect(workspace.get_work_area_for_monitor(index)),
+            display.get_monitor_scale(index),
+            rates.get(connector) ?? 0,
+            display.get_primary_monitor() === index,
+          ];
+        });
+      return [monitors];
+    });
+  }
+
+  /** Taxa de atualização por conector, pela interface D-Bus pública do Mutter. */
+  async _refreshRates() {
+    try {
+      const reply = await Gio.DBus.session.call(
+        'org.gnome.Mutter.DisplayConfig',
+        '/org/gnome/Mutter/DisplayConfig',
+        'org.gnome.Mutter.DisplayConfig',
+        'GetCurrentState',
+        null,
+        null,
+        Gio.DBusCallFlags.NONE,
+        -1,
+        null,
+      );
+      return currentRefreshRates(reply.recursiveUnpack());
+    } catch (error) {
+      console.warn(`Kobi: refresh rates unavailable: ${error}`);
+      return new Map();
+    }
   }
 
   _reply(invocation, signature, work) {

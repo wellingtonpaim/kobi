@@ -31,7 +31,7 @@ stop_nested
 sleep 1
 touch "$work/started"
 KOBI_NESTED_X11=$([ "$strategy" = x11 ] && echo 1 || echo 0) \
-  KOBI_NESTED_MODE=headless KOBI_NESTED_MONITORS="1920x1080 1920x1200" \
+  KOBI_NESTED_MODE=headless KOBI_NESTED_MONITORS="1920x1080@60 1920x1200@100" \
   setsid "$dev_dir/nested-session.sh" > "$work/nested.log" 2>&1 < /dev/null &
 for _ in $(seq 1 60); do
   sleep 0.5
@@ -103,6 +103,11 @@ for x in 1660 1670 1680; do click "$x" 1000; done
 base=$(behind_clicks)
 
 check "estratégia escolhida" "$(grep -o 'overlay: [a-z0-9-]*' "$work/kobi.log")" "$expected_overlay"
+if [ "$strategy" = wayland ]; then
+  # Com a extensão, os monitores vêm do GNOME: ids são conectores, com taxa real (100 Hz).
+  check "monitores lidos do GNOME" \
+    "$(grep -o 'principal: [A-Za-z0-9-]*' "$work/kobi.log" | grep -q 'principal: Meta-' && grep -q '100 Hz' "$work/kobi.log" && echo sim || echo "não: $(grep monitores "$work/kobi.log")")" "sim"
+fi
 check "janela acima e em todas as áreas de trabalho" \
   "$(shell_eval "const w = global.get_window_actors().map(a => a.get_meta_window()).find(w => w.get_wm_class() === 'io.github.wellingtonpaim.Kobi'); String(w.is_above() && w.is_on_all_workspaces())")" "true"
 # Canto inferior direito da área útil do principal (1920×1200 à esquerda), margem de 24 px,
