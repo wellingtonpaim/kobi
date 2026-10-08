@@ -24,9 +24,9 @@ O ambiente do Wellington é o **primeiro caso da matriz**, não o alvo:
 
 | Caso | Configuração | Como testar no spike |
 |---|---|---|
-| Ambiente de referência | 3 monitores com escala 1.0: DVI-I-2 via **adaptador USB DisplayLink** (1920×1080) à esquerda, eDP-1 do notebook (1920×1200, 60 Hz, principal) no centro, HDMI-1 (1920×1080, 100 Hz) à direita, desalinhados em 120 px | físico |
+| Ambiente de referência | 3 monitores com escala 1.0: DVI-I-2 via **adaptador USB DisplayLink** (1920×1080, 100 Hz) à esquerda, eDP-1 do notebook (1920×1200, 60 Hz, principal) no centro, HDMI-1 (1920×1080, 100 Hz) à direita, desalinhados em 120 px | físico |
 | Monitor único | só o notebook | físico (desconectando os externos) |
-| Dois monitores, taxas diferentes | 60 Hz + 100 Hz | físico |
+| Dois monitores, taxas diferentes | 60 Hz + 100 Hz | físico (já coberto pelo ambiente de referência) |
 | Escala fracionária e mista | um monitor a 125% ou 150%, outro a 100% | físico (Configurações → Telas) |
 | Disposição empilhada e coordenadas negativas | monitor acima ou à esquerda do principal | físico, reorganizando em Configurações |
 | Hotplug | desconectar e reconectar o monitor onde o Kobi está | físico |
@@ -147,12 +147,51 @@ Esta spec é, ela própria, a primeira medição real do orçamento de `docs/per
 - **`setPosition` recusa −0** (não é inteiro de 32 bits no V8): posições passam por `Math.round(v) + 0`.
 - Terminais do VS Code herdam `ELECTRON_RUN_AS_NODE=1`; o `scripts/start.mjs` remove.
 - Hipóteses 1 (fundo transparente) e 3 (clique atravessando) confirmadas pelo Wellington; travessia entre os três monitores, incluindo o DisplayLink, funcionando.
+- **Hipótese 5 confirmada com medição:** o app roda sem foco (`showInactive`) durante todo o `bench` e mantém a taxa cheia de cada monitor.
+- **Hipótese 4 confirmada com medição** (em movimento programático): nos segundos com travessia entre monitores, o maior intervalo entre quadros foi 22 ms, ou seja, no máximo um quadro perdido. Falta o arraste manual.
+- **A leitura do canvas para o clique atravessando custava ~10 quadros perdidos por segundo.** O `HitSampler` lia o canvas visível (`drawImage` + `getImageData`) a cada 100 ms, e isso obrigava o renderer a esperar a GPU (intervalos de 26,7 ms seguidos de 6,7 ms). Agora o avatar redesenha a cena num render target minúsculo e lê de forma assíncrona (PBO + fence do WebGL2, `readRenderTargetPixelsAsync`): o intervalo fica cravado na taxa do monitor, e a região resultante coincide com a antiga (diferença ≤ 1 célula de 4 px). Vale para qualquer estratégia.
+- **O evento `moved` não dispara quando o próprio app chama `setPosition`** (X11): o monitor atual passou a ser conferido a cada movimento, com o layout em cache.
+- **No Wayland nativo o Electron informa `displayFrequency = 0`** em todos os monitores (cai em `UNKNOWN_REFRESH_FALLBACK`). A estratégia B precisa obter a taxa por outro caminho (extensão ou medida pelo intervalo do rAF).
+- O XWayland informa 59,88 Hz para o eDP-1, que o Mutter declara a 60,003 Hz.
+
+### Medições da estratégia A (2026-10-07)
+`pnpm --filter @kobi/desktop bench` (ambiente de referência, escala 1.0, app sem foco). CPU em % de um núcleo (média / p95 por segundo); a máquina tem 16 threads. GPU pelo `gpu_busy_percent` da Radeon integrada.
+
+| Fase | Kobi (todos os processos) | Kobi (% da máquina) | gnome-shell | Xwayland | GPU ocupada |
+|---|---|---|---|---|---|
+| sem o Kobi | — | — | 1,1 / 2,0 | 0,0 / 0,0 | 0 / 0 |
+| parado · DVI-I-2 DisplayLink (100 Hz) | 39,5 / 41,0 | 2,5 | 13,0 / 13,7 | 1,9 / 2,9 | 42,6 / 43,0 |
+| parado · eDP-1 (60 Hz) | 26,1 / 28,3 | 1,6 | 8,3 / 8,8 | 1,2 / 2,0 | 25,9 / 27,0 |
+| parado · HDMI-1 (100 Hz) | 36,9 / 41,9 | 2,3 | 11,3 / 12,6 | 1,7 / 1,9 | 44,1 / 49,0 |
+| passeio de teste contínuo | 41,6 / 54,3 | 2,6 | 15,9 / 20,4 | 7,9 / 10,7 | 34,4 / 42,0 |
+
+| Fase · monitor | s | fps médio | fps mín | perdidos | intervalo p95 | intervalo máx | render p95 |
+|---|---|---|---|---|---|---|---|
+| parado · DVI-I-2 (100 Hz) | 15 | 100,3 | 100 | 0 | 10,2 ms | 10,8 ms | 0,8 ms |
+| parado · eDP-1 (60 Hz) | 16 | 60,5 | 60 | 0 | 17,1 ms | 17,5 ms | 0,9 ms |
+| parado · HDMI-1 (100 Hz) | 15 | 100,1 | 99 | 2 | 10,2 ms | 20,6 ms | 0,9 ms |
+| passeio · DVI-I-2 | 13 | 100,4 | 100 | 0 | 10,2 ms | 10,4 ms | 1,4 ms |
+| passeio · eDP-1 | 19 | 60,3 | 59 | 3 | 17,0 ms | 31,0 ms | 1,1 ms |
+| passeio · HDMI-1 | 13 | 100,2 | 99 | 1 | 10,2 ms | 23,6 ms | 1,2 ms |
+| passeio · segundos com travessia | 16 | 89,6 | 72 | (\*) | 17,0 ms | 22,2 ms | 1,1 ms |
+
+Memória do Kobi (PSS, todos os processos): ~306 MiB parado, ~309 MiB depois do passeio.
+
+(\*) Um segundo com travessia mistura quadros de 60 Hz e de 100 Hz, e a contagem usa a taxa do monitor de chegada; o que vale ali é o intervalo máximo.
+
+Leitura dos números:
+- **Fluidez dentro da meta:** a animação acompanha a taxa de cada monitor, inclusive no DisplayLink, sem custo extra visível nele (mesmo patamar do HDMI de 100 Hz).
+- **Custo parado acima do espírito da meta.** Pela máquina inteira dá 1,6–2,5% (dentro de "< 5%"), mas são 26–40% de um núcleo e 26–44% da GPU integrada só para flutuar, mais 7–12% de um núcleo no `gnome-shell`. A meta "< 5%" de `docs/performance.md` precisa dizer se é da máquina ou de um núcleo.
+- **100 Hz custa ~50% a mais de CPU e ~65% a mais de GPU que 60 Hz.** É o dado que a spec pedia para decidir o teto de 60 fps por padrão (decisão do ADR).
+- Mover a janela X11 custa ~6% de um núcleo no Xwayland e ~5% no `gnome-shell`.
+- Hipóteses de redução de custo para avaliar antes do ADR: desenhar o WebGL direto no canvas visível (hoje há uma cópia WebGL → canvas 2D por quadro); supersampling 3× somado ao MSAA (`antialias: true`); desenhar parado a uma taxa menor quando só a flutuação se move.
 
 ### Falta
-1. **Fechar a estratégia A:** observações do Wellington sobre a hipótese 2 (por cima de janela maximizada, da Visão geral e de app em tela cheia) e fps do diagnóstico nos monitores de 60 Hz e 100 Hz; medir CPU/GPU/memória (tabela "Medições"); casos da matriz ainda não testados (escala fracionária, monitor único, hotplug).
+1. **Fechar a estratégia A:** observações do Wellington sobre a hipótese 2 (por cima de janela maximizada, da Visão geral e de app em tela cheia); fluidez ao **arrastar** com o mouse (o painel de diagnóstico agora mostra intervalo entre quadros e quadros perdidos); casos da matriz ainda não testados (escala fracionária, monitor único, hotplug), rodando o `bench` em cada um.
 2. **Estratégia B:** Electron nativo no Wayland (`KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop start`) + extensão GNOME mínima em `extensions/gnome/` (GPL-2.0-or-later, D-Bus), implementando a porta `OverlayWindow`.
 3. **Comparar** as duas com a mesma tabela de medições e escrever o **ADR da estratégia de overlay no Linux**.
 
 ### Como rodar
 - App: `pnpm --filter @kobi/desktop start` (estratégia A por padrão).
+- Medições: `pnpm --filter @kobi/desktop bench` (~2,5 min; feche o Kobi antes e não mexa no computador). Linha de base sem o Kobi, parado em cada monitor e passeio contínuo; imprime as tabelas acima. Durações por `KOBI_BENCH_BASELINE`, `KOBI_BENCH_IDLE` (por monitor) e `KOBI_BENCH_TOUR`; `KOBI_OVERLAY=wayland` para a estratégia B.
 - Página do avatar, comparação com o v6 e playground de movimento: `pnpm --filter @kobi/avatar dev` → `http://localhost:5173/compare.html` e `/playground.html`.
