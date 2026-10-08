@@ -300,6 +300,8 @@ Medições a 125% (`bench`, % de um núcleo, média; GPU em %):
 
 Fluidez: as duas mantêm a taxa cheia de cada monitor; a A perde 3 a 5 quadros a cada 15 s (intervalo máximo até 36,6 ms), a B até 2 (máximo 33,4 ms). Memória: ~300 MiB nas duas. Na B os números são os mesmos de 100%; na A o custo quase dobra nos externos **com o Kobi encolhido à metade** (o mesmo número de pixels de antes); no tamanho certo seriam 4× mais pixels.
 
+**Onde paramos (2026-10-08, fim do dia):** escala do eDP-1 de volta a 100% com a B aberta (ok). A extensão instalada e carregada é a do commit `99d22cc`. O GNOME realinhou os monitores depois das mudanças de escala: agora os externos ficam em y = 0 e o eDP-1 em y = 120 (antes era o contrário); não atrapalha. Próximo passo: **hotplug na B**, abrindo com o log (comando de "Como rodar", na estratégia B): Kobi num monitor externo, desconectar o cabo desse monitor com o app aberto, conferir se ele reaparece no monitor mais próximo, reconectar; depois o mesmo com o DisplayLink e, por fim, só o notebook (`bench` sem os externos). Em seguida, os mesmos casos na A.
+
 Próximos passos do teste guiado:
 1. **Casos da matriz** restantes (em cada um, `bench` + observação): só o notebook (desconectar os externos), hotplug (desconectar e reconectar o monitor onde o Kobi está, com o app aberto; o log mostra `[kobi] monitores mudaram` e a posição depois do resgate).
 2. **Comparar** as duas estratégias e escrever o **ADR da estratégia de overlay no Linux** (em `docs/adr/`), com as tabelas, as descobertas, os casos pendentes e as consequências para as outras plataformas.
