@@ -56,7 +56,9 @@ export const choosePlatform = async (window: BrowserWindow): Promise<Platform | 
     );
   return {
     name: 'gnome-wayland',
-    overlay: new GnomeShellOverlayWindow(window, extension),
+    overlay: new GnomeShellOverlayWindow(window, extension, {
+      compositorRoutesPointer: version >= EXTENSION_VERSIONS.pointerRouting,
+    }),
     displays:
       version >= EXTENSION_VERSIONS.monitors
         ? await GnomeShellDisplaySource.create(extension)

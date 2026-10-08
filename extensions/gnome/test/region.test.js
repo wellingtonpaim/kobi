@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { pointerInRegions } from '../region.js';
+import { pointerInRegions, receivesPointer } from '../region.js';
 
 const frame = { x: 1000, y: 500 };
 const regions = [
@@ -30,5 +30,20 @@ describe('pointerInRegions', () => {
 
   it('is outside when there is no region yet', () => {
     expect(pointerInRegions(frame, [], [1010, 520])).toBe(false);
+  });
+});
+
+describe('receivesPointer', () => {
+  it('takes the mouse only over the Kobi', () => {
+    expect(receivesPointer(true, false, false)).toBe(true);
+    expect(receivesPointer(false, false, true)).toBe(false);
+  });
+
+  it('keeps the mouse during a drag that started on the Kobi, even when the pointer slips out', () => {
+    expect(receivesPointer(false, true, true)).toBe(true);
+  });
+
+  it('does not grab a drag from another window that passes over the Kobi', () => {
+    expect(receivesPointer(true, true, false)).toBe(false);
   });
 });

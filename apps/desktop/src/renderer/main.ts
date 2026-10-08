@@ -139,6 +139,7 @@ const frameStats = new FrameStats();
 let statsSince = performance.now();
 /** Modo de medição (spec 0002): o resumo de cada segundo vai para o stdout do app. */
 const bench = new URLSearchParams(location.search).has('bench');
+if (new URLSearchParams(location.search).has('diagnostics')) diagnostics.style.display = 'block';
 
 const loop = (nowMs: number): void => {
   const now = nowMs / 1000;

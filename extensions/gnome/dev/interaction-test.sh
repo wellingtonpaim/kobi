@@ -66,6 +66,8 @@ pointer() {
       .create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
     const p = global._kobiPointer, t = GLib.get_monotonic_time(); $action 'ok'" > /dev/null
 }
+# Salta direto para o ponto e clica parado: o caso mais exigente para a troca de quem
+# recebe o mouse (um mouse real manda vários movimentos no caminho).
 click() {
   pointer move "$1" "$2"; sleep 0.3
   pointer press; sleep 0.05; pointer release; sleep 0.4
@@ -122,6 +124,11 @@ click $((sx + 10)) $((sy + 14))
 check "clique na área transparente vai para a janela de trás" "$(($(behind_clicks) - base))" "1"
 click $((sx + 150)) $((sy + 204))
 check "clique no corpo fica com o Kobi" "$(($(behind_clicks) - base))" "1"
+# Depois de passar pelo corpo, a área transparente volta a deixar o clique passar
+# (achado do Wellington: antes, só voltava ao sair da janela inteira).
+pointer move $((sx + 150)) $((sy + 204)); sleep 0.4
+click $((sx + 12)) $((sy + 16))
+check "depois de passar pelo corpo, a área transparente deixa o clique passar" "$(($(behind_clicks) - base))" "2"
 
 bx=$((sx + 150)); by=$((sy + 204))
 pointer move "$bx" "$by"; sleep 0.3; pointer press; sleep 0.1

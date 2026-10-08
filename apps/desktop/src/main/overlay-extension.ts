@@ -20,6 +20,8 @@ export const EXTENSION_VERSIONS = {
   overlay: 1,
   /** GetMonitors e MonitorsChanged. */
   monitors: 2,
+  /** A extensão entrega o mouse à janela de trás fora do Kobi. */
+  pointerRouting: 3,
 } as const;
 
 /** O que a extensão GNOME do Kobi oferece (extensions/gnome, interface D-Bus). */

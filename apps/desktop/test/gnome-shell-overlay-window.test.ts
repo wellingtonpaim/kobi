@@ -205,4 +205,21 @@ describe('GnomeShellOverlayWindow', () => {
       await expect(overlay.show()).rejects.toThrow('never appeared');
     });
   });
+
+  it('leaves the mouse to the compositor when the extension routes it', async () => {
+    const ext = fakeExtension();
+    const win = fakeWindow();
+    const overlay = new GnomeShellOverlayWindow(win.window, ext.extension, {
+      pollMs: 1,
+      compositorRoutesPointer: true,
+    });
+    ext.setFrame({ x: 0, y: 0, width: 300, height: 400 });
+    await overlay.show();
+
+    ext.pointer(false);
+    overlay.holdPointer(true);
+    overlay.holdPointer(false);
+
+    expect(win.ignoring).toEqual([]);
+  });
 });

@@ -43,6 +43,9 @@ const createWindow = (): BrowserWindow =>
     },
   });
 
+/** Abre o painel de diagnóstico (fps, quadros perdidos, monitor) desde o início. */
+const DIAGNOSTICS_SWITCH = '--kobi-diagnostics';
+
 /** Falhas ao mover a janela não podem derrubar o app: ficam registradas e o Kobi segue. */
 const logFailure = (error: unknown): void => {
   console.error('[kobi]', error);
@@ -96,9 +99,18 @@ const start = async (): Promise<void> => {
     return { x, y };
   };
 
+  const describeMonitors = (): string =>
+    `${layout.displays.map((d) => `${d.id} ${String(Math.round(d.refreshRateHz))} Hz ${String(d.scaleFactor)}×`).join(', ')}; principal: ${layout.primary.id}`;
   displays.onChange(() => {
     layout = displays.current();
-    keepVisible.execute().catch(logFailure);
+    console.log(`[kobi] monitores mudaram: ${describeMonitors()}`);
+    keepVisible
+      .execute()
+      .then(topLeft)
+      .then(({ x, y }) => {
+        console.log(`[kobi] depois da mudança, janela em (${String(x)}, ${String(y)})`);
+      })
+      .catch(logFailure);
   });
 
   ipcMain.on(CHANNELS.setSilhouette, (_, silhouette: Region) => {
@@ -153,6 +165,10 @@ const start = async (): Promise<void> => {
         });
       }
       const velocity = ended?.release.velocityAt(performance.now()) ?? { x: 0, y: 0 };
+      const at = await topLeft();
+      console.log(
+        `[kobi] soltou em (${String(at.x)}, ${String(at.y)}), velocidade (${velocity.x.toFixed(0)}, ${velocity.y.toFixed(0)}) px/s`,
+      );
       if (velocity.x === 0 && velocity.y === 0) {
         await keepVisible.execute();
         return undefined;
@@ -204,16 +220,16 @@ const start = async (): Promise<void> => {
       },
     });
 
-  await window.loadFile(
-    path.join(__dirname, 'renderer', 'index.html'),
-    bench ? { query: { bench: '1' } } : undefined,
-  );
+  await window.loadFile(path.join(__dirname, 'renderer', 'index.html'), {
+    query: {
+      ...(bench ? { bench: '1' } : {}),
+      ...(process.argv.includes(DIAGNOSTICS_SWITCH) ? { diagnostics: '1' } : {}),
+    },
+  });
   await new PlaceKobiOnStartup(overlay, displays).execute();
   await overlay.show();
   console.log(`[kobi] overlay: ${platform.name}`);
-  console.log(
-    `[kobi] monitores: ${layout.displays.map((d) => `${d.id} ${String(Math.round(d.refreshRateHz))} Hz`).join(', ')}; principal: ${layout.primary.id}`,
-  );
+  console.log(`[kobi] monitores: ${describeMonitors()}`);
 };
 
 app.on('window-all-closed', () => {
