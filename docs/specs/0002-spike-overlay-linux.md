@@ -157,6 +157,8 @@ Esta spec é, ela própria, a primeira medição real do orçamento de `docs/per
 - **O evento `moved` não dispara quando o próprio app chama `setPosition`** (X11): o monitor atual passou a ser conferido a cada movimento, com o layout em cache.
 - **No Wayland nativo o Electron informa `displayFrequency = 0`** em todos os monitores (cai em `UNKNOWN_REFRESH_FALLBACK`). A estratégia B precisa obter a taxa por outro caminho (extensão ou medida pelo intervalo do rAF).
 - O XWayland informa 59,88 Hz para o eDP-1, que o Mutter declara a 60,003 Hz.
+- **Visão geral:** a janela `dock` some enquanto a visão geral está aberta (nos três monitores) e volta ao mesmo lugar; na B o Kobi vira miniatura ao lado das outras janelas (teste guiado, passo 6A).
+- **O painel de diagnóstico era recortado pela forma X11** (achado do Wellington no teste guiado): aparecia só onde encostava na silhueta, e o pedaço oscilava com a flutuação. Tudo que a janela desenha fora do Kobi (hoje o painel; no futuro balão e menu, se ficarem na mesma janela) precisa entrar na forma, e ali o clique também deixa de atravessar. A porta da plataforma ganhou `revealArea`, que no Wayland não faz nada.
 
 ### Descobertas da estratégia B (entram no ADR)
 - **O Mutter restringe janelas Wayland comuns como as X11 comuns** (`move_frame` normal): mantém a janela inteira na faixa vertical de todos os monitores e abaixo do painel. Como operação do usuário (`move_frame(true, …)`), a restrição some, e a janela vai a qualquer posição. Quem mantém o Kobi visível é o domínio (`keepOnScreen`), como na A.
@@ -262,15 +264,24 @@ Estratégia B (Wayland + extensão), feitos em 2026-10-08:
 | 4. Arremessar | ok: freia suave, atravessa monitores, não some, pega no ar (velocidades de ~300 a ~18.800 px/s no log) |
 | 5. Janela maximizada em foco | ok: continua por cima |
 | 6A. Visão geral | miniatura ao lado das outras janelas; volta ao mesmo lugar |
-| 6B. Trocar de área de trabalho | falhou e foi corrigido (commit `99d22cc`): o GNOME prendia o Kobi à área ativa ao voltar ao principal. **Falta reinstalar a extensão (`extensions/gnome/dev/install.sh`), sair e entrar no GNOME e refazer o 6B.** |
+| 6B. Trocar de área de trabalho | falhou e foi corrigido (commit `99d22cc`): o GNOME prendia o Kobi à área ativa ao voltar ao principal. Refeito com a extensão reinstalada e novo login: ok, indo e voltando dos monitores da esquerda e da direita, o Kobi continua visível e no mesmo lugar ao trocar de área de trabalho |
 | 7. Tela cheia | o Kobi fica por cima do vídeo em tela cheia (F no navegador) nos três monitores e não sai do lugar ao entrar ou sair dela |
 
-Próximos passos do teste guiado:
-1. **Refazer o 6B** com a extensão reinstalada (já instalada nos arquivos; o GNOME só a carrega depois de sair e entrar de novo). Conferir antes com `gnome-extensions info kobi-overlay@wellingtonpaim.github.io` (estado ACTIVE) e, se preciso, rodar de novo `extensions/gnome/dev/install.sh`.
-2. *(feito: Passo 7, tela cheia)*
-3. **Mesmos passos 1–7 na estratégia A** (`pnpm --filter @kobi/desktop start -- --kobi-diagnostics`, ou o comando de "Como rodar").
-4. **Casos da matriz** (em cada um, `bench` + observação): escala fracionária (um monitor a 125% em Configurações → Telas), só o notebook (desconectar os externos), hotplug (desconectar e reconectar o monitor onde o Kobi está, com o app aberto; o log mostra `[kobi] monitores mudaram` e a posição depois do resgate).
-5. **Comparar** as duas estratégias e escrever o **ADR da estratégia de overlay no Linux** (em `docs/adr/`), com as tabelas, as descobertas, os casos pendentes e as consequências para as outras plataformas.
+Estratégia A (XWayland), mesmos passos, feitos em 2026-10-08:
+| Passo | Resultado |
+|---|---|
+| 1. Onde aparece | ok depois de uma correção: o painel de diagnóstico aparecia só em parte, e o pedaço oscilava com a flutuação (a forma X11 recorta o desenho e só cobria a silhueta). Agora a área do painel entra na forma (`revealArea`) |
+| 2. Clique atravessa | ok, inclusive logo depois de passar o mouse pelo corpo |
+| 3. Arrastar entre os monitores | ok |
+| 4. Arremessar | ok: 15 arremessos de ~50 a ~18.400 px/s, para os dois lados, pegando no ar; nunca ficou preso ao mouse |
+| 5. Janela maximizada em foco | ok: continua por cima |
+| 6A. Visão geral | **some** nos três monitores (o GNOME não mostra janelas `dock` na visão geral) e volta ao mesmo lugar ao sair |
+| 6B. Trocar de área de trabalho | ok, indo e voltando dos monitores da esquerda e da direita |
+| 7. Tela cheia | por cima do vídeo nos três monitores, sem sair do lugar (igual à B) |
+
+Estratégias A e B concluídas (passos 1 a 7). Próximos passos do teste guiado:
+1. **Casos da matriz** (em cada um, `bench` + observação): escala fracionária (um monitor a 125% em Configurações → Telas), só o notebook (desconectar os externos), hotplug (desconectar e reconectar o monitor onde o Kobi está, com o app aberto; o log mostra `[kobi] monitores mudaram` e a posição depois do resgate).
+2. **Comparar** as duas estratégias e escrever o **ADR da estratégia de overlay no Linux** (em `docs/adr/`), com as tabelas, as descobertas, os casos pendentes e as consequências para as outras plataformas.
 
 ### Como rodar
 - App: `pnpm --filter @kobi/desktop start` (estratégia A por padrão).
