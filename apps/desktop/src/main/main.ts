@@ -1,6 +1,6 @@
 import { KeepKobiVisible, PlaceKobiOnStartup, PlanGlide } from '@kobi/application';
 import { type Point, Rect } from '@kobi/domain';
-import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu } from 'electron';
 import path from 'node:path';
 
 import {
@@ -12,7 +12,6 @@ import {
   type TourPlan,
 } from '../shared/api.js';
 import { attachBenchMode, BENCH_SWITCH } from './bench-mode.js';
-import { ElectronDisplaySource } from './electron-display-source.js';
 import { ObservedOverlayWindow } from './observed-overlay-window.js';
 import { choosePlatform } from './platform.js';
 import { ReleaseTracker } from './release-tracker.js';
@@ -57,7 +56,7 @@ const start = async (): Promise<void> => {
 
   const platform = await choosePlatform(window);
   if (!platform) return;
-  const displays = new ElectronDisplaySource(screen);
+  const { displays } = platform;
 
   /** Layout em cache: o monitor do Kobi é conferido a cada movimento, sem reler o sistema. */
   let layout = displays.current();
@@ -212,6 +211,9 @@ const start = async (): Promise<void> => {
   await new PlaceKobiOnStartup(overlay, displays).execute();
   await overlay.show();
   console.log(`[kobi] overlay: ${platform.name}`);
+  console.log(
+    `[kobi] monitores: ${layout.displays.map((d) => `${d.id} ${String(Math.round(d.refreshRateHz))} Hz`).join(', ')}; principal: ${layout.primary.id}`,
+  );
 };
 
 app.on('window-all-closed', () => {

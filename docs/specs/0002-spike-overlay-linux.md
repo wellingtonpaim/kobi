@@ -234,7 +234,7 @@ O protocolo Wayland não entrega aos apps informações que o domínio usa. Medi
 - **Monitor principal errado:** `screen.getPrimaryDisplay()` devolve o monitor em (0, 0) (o DisplayLink), não o eDP-1. O Kobi abre no canto do monitor errado.
 - **Área útil sem o painel:** `workArea` é igual ao monitor inteiro (eDP-1 com y = 0 e altura 1200, contra 32 e 1168 no X11). O Kobi pode parar por baixo do painel superior.
 - **Taxa de atualização 0** em todos os monitores (cai em 60 Hz).
-A extensão tem acesso a tudo isso pelo Mutter; a proposta é uma `DisplaySource` do GNOME que leia os monitores pela extensão.
+**Resolvido com a extensão (versão 2):** `GetMonitors` devolve, por monitor, conector, geometria, área útil sem o painel, escala e principal (pelo Shell) e a taxa de atualização (pela interface D-Bus pública `org.gnome.Mutter.DisplayConfig`, cruzada pelo conector); o sinal `MonitorsChanged` avisa hotplug, escala, disposição e área útil, sem polling. No app, `GnomeShellDisplaySource` implementa a porta `DisplaySource` com esses dados (ids = conectores). Com a extensão na versão 1, o app segue com a API `screen` do Electron e avisa no log. Validado na sessão aninhada; falta conferir na sessão real.
 
 ### Falta
 1. **Fechar a estratégia A:** observações do Wellington sobre a hipótese 2 (por cima de janela maximizada, da Visão geral e de app em tela cheia); fluidez ao **arrastar** com o mouse (o painel de diagnóstico agora mostra intervalo entre quadros e quadros perdidos); casos da matriz ainda não testados (escala fracionária, monitor único, hotplug), rodando o `bench` em cada um.

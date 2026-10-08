@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Instala a extensão do Kobi na sessão GNOME do usuário, no mesmo formato do site de
-# extensões (só extension.js, region.js, metadata.json e LICENSE; nada de dev/ ou test/).
+# extensões (só extension.js, region.js, monitors.js, metadata.json e LICENSE; nada de dev/ ou test/).
 # No Wayland o GNOME só carrega extensões novas depois de sair e entrar de novo.
 #
 #   extensions/gnome/dev/install.sh            # instala (ou atualiza) e ativa
@@ -20,7 +20,7 @@ fi
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 gnome-extensions pack "$extension_dir" --force --out-dir "$out" \
-  --extra-source=region.js --extra-source=LICENSE
+  --extra-source=region.js --extra-source=monitors.js --extra-source=LICENSE
 gnome-extensions install --force "$out/$uuid.shell-extension.zip"
 
 if gnome-extensions enable "$uuid" 2> /dev/null; then

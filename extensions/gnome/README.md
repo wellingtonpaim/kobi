@@ -9,6 +9,7 @@ Licença **GPL-2.0-or-later** (arquivo `LICENSE` nesta pasta), separada do resto
 - Mantém a janela do Kobi acima das outras e em todas as áreas de trabalho.
 - Move a janela para qualquer posição, sem as restrições de janela comum. Quem garante que o Kobi não some da tela é o app (`keepOnScreen`, no domínio).
 - Informa a posição global do ponteiro e avisa quando ele entra ou sai da região interativa do Kobi, para o clique atravessar no resto da janela.
+- Informa os monitores como o GNOME os vê (monitor principal, área útil sem o painel, escala e taxa de atualização), que o Electron não conhece no Wayland, e avisa quando eles mudam.
 
 ## Privacidade e segurança
 
@@ -18,7 +19,7 @@ Licença **GPL-2.0-or-later** (arquivo `LICENSE` nesta pasta), separada do resto
 
 ## Interface D-Bus
 
-Nome e interface `io.github.wellingtonpaim.Kobi.Overlay`, objeto `/io/github/wellingtonpaim/Kobi/Overlay`, barramento da sessão. Métodos `MoveTo`, `GetFrame`, `GetPointer` e `SetInteractiveRegion`, sinal `PointerInside` e propriedade `Version` (o app só usa versões que conhece). Detalhes em `extension.js`.
+Nome e interface `io.github.wellingtonpaim.Kobi.Overlay`, objeto `/io/github/wellingtonpaim/Kobi/Overlay`, barramento da sessão. Métodos `MoveTo`, `GetFrame`, `GetPointer`, `SetInteractiveRegion` e `GetMonitors`, sinais `PointerInside` e `MonitorsChanged` e propriedade `Version` (1: janela e ponteiro; 2: monitores). O app usa o que a versão instalada oferece. Detalhes em `extension.js`.
 
 ## Instalar na sua sessão
 
@@ -29,6 +30,6 @@ Nome e interface `io.github.wellingtonpaim.Kobi.Overlay`, objeto `/io/github/wel
 - `dev/nested-session.sh`: sessão GNOME aninhada e isolada (dconf, extensões e D-Bus próprios), com a extensão carregada direto desta pasta. Por padrão abre a janela do devkit com dois monitores virtuais; `KOBI_NESTED_MODE=headless` roda sem janela e `KOBI_NESTED_MONITORS="1920x1080 3840x2160"` escolhe os monitores. Para abrir o Kobi dentro dela: `source "$XDG_RUNTIME_DIR/kobi-nested/env" && KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop start`.
 - `dev/interaction-test.sh`: teste automático de ponta a ponta na sessão aninhada headless, com um ponteiro virtual: clique atravessando, clique no corpo, arraste e arremesso. Rode `pnpm --filter @kobi/desktop build` antes.
 - `dev/unsafe-mode@kobi.dev/`: extensão **só de testes**, carregada apenas na sessão aninhada, que libera `Eval` e capturas de tela para o teste automático. Nunca instale numa sessão real.
-- `region.js` concentra as regras puras, testadas com o Vitest (`test/`).
+- `region.js` e `monitors.js` concentram as regras puras, testadas com o Vitest (`test/`).
 
 GNOME 50 (módulos ES). Versões anteriores ainda não foram testadas.

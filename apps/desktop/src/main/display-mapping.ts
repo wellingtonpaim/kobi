@@ -10,7 +10,7 @@ import {
 
 /** O que o adaptador lê de cada monitor na API `screen` do Electron. */
 export interface SystemDisplay {
-  readonly id: number;
+  readonly id: number | string;
   readonly bounds: { x: number; y: number; width: number; height: number };
   readonly workArea: { x: number; y: number; width: number; height: number };
   readonly scaleFactor: number;
@@ -26,7 +26,7 @@ export type MappingError = InvalidDisplay | InvalidLayout | { readonly kind: 'in
 /** Camada anticorrupção: traduz os monitores do Electron para o domínio. */
 export const toDisplayLayout = (
   displays: readonly SystemDisplay[],
-  primaryId: number,
+  primaryId: number | string,
 ): Result<DisplayLayout, MappingError> => {
   const mapped: Display[] = [];
   for (const d of displays) {

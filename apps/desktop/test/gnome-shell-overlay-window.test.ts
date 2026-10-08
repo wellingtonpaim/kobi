@@ -12,7 +12,9 @@ const fakeExtension = () => {
   let frame: RectProps | undefined;
   let pointerInside: (inside: boolean) => void = () => undefined;
   const extension: OverlayExtension = {
-    available: () => Promise.resolve(true),
+    version: () => Promise.resolve(2),
+    monitors: () => Promise.resolve([]),
+    onMonitorsChanged: () => undefined,
     moveTo: (at) =>
       new Promise((resolve) => {
         moves.push({ at, reply: resolve });
