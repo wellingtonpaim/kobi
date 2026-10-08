@@ -18,13 +18,13 @@ const bridge: KobiBridge = {
   setSilhouette: (silhouette: Region) => {
     ipcRenderer.send(CHANNELS.setSilhouette, silhouette);
   },
-  dragStart: () => {
-    ipcRenderer.send(CHANNELS.dragStart);
+  dragStart: (cursor: ScreenPoint) => {
+    ipcRenderer.send(CHANNELS.dragStart, cursor);
   },
-  dragMove: () => {
-    ipcRenderer.send(CHANNELS.dragMove);
+  dragMove: (cursor: ScreenPoint) => {
+    ipcRenderer.send(CHANNELS.dragMove, cursor);
   },
-  dragEnd: () => ipcRenderer.invoke(CHANNELS.dragEnd),
+  dragEnd: (cursor: ScreenPoint) => ipcRenderer.invoke(CHANNELS.dragEnd, cursor),
   showMenu: () => {
     ipcRenderer.send(CHANNELS.showMenu);
   },

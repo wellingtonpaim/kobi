@@ -116,9 +116,9 @@ const start = async (): Promise<void> => {
   // Wayland a interface só conhece o ponteiro relativo à janela. Soltar com o mouse em
   // movimento arremessa o Kobi (spec 0005).
   let drag: { grab: Point; window: Point; release: ReleaseTracker } | undefined;
-  ipcMain.on(CHANNELS.dragStart, () => {
+  ipcMain.on(CHANNELS.dragStart, (_, reported: ScreenPoint) => {
     overlay.holdPointer(true);
-    Promise.all([platform.pointer(), topLeft()])
+    Promise.all([platform.pointer(reported), topLeft()])
       .then(([grab, position]) => {
         const release = new ReleaseTracker();
         release.add(grab, performance.now());
@@ -126,9 +126,9 @@ const start = async (): Promise<void> => {
       })
       .catch(logFailure);
   });
-  ipcMain.on(CHANNELS.dragMove, () => {
+  ipcMain.on(CHANNELS.dragMove, (_, reported: ScreenPoint) => {
     platform
-      .pointer()
+      .pointer(reported)
       .then((cursor) => {
         if (!drag) return;
         drag.release.add(cursor, performance.now());
@@ -139,30 +139,33 @@ const start = async (): Promise<void> => {
       })
       .catch(logFailure);
   });
-  ipcMain.handle(CHANNELS.dragEnd, async (): Promise<SampledPath | undefined> => {
-    const ended = drag;
-    drag = undefined;
-    overlay.holdPointer(false);
-    // O último movimento do mouse pode chegar junto com o soltar: alcança o ponteiro.
-    if (ended) {
-      const cursor = await platform.pointer();
-      await overlay.moveTo({
-        x: ended.window.x + cursor.x - ended.grab.x,
-        y: ended.window.y + cursor.y - ended.grab.y,
-      });
-    }
-    const velocity = ended?.release.velocityAt(performance.now()) ?? { x: 0, y: 0 };
-    if (velocity.x === 0 && velocity.y === 0) {
-      await keepVisible.execute();
-      return undefined;
-    }
-    const glide = await planGlide.execute(velocity);
-    const step = 1 / 120;
-    const points: ScreenPoint[] = [];
-    for (let t = 0; t < glide.duration; t += step) points.push(glide.positionAt(t));
-    points.push(glide.positionAt(glide.duration));
-    return { step, points };
-  });
+  ipcMain.handle(
+    CHANNELS.dragEnd,
+    async (_, reported: ScreenPoint): Promise<SampledPath | undefined> => {
+      const ended = drag;
+      drag = undefined;
+      overlay.holdPointer(false);
+      // O último movimento do mouse pode chegar junto com o soltar: alcança o ponteiro.
+      if (ended) {
+        const cursor = await platform.pointer(reported);
+        await overlay.moveTo({
+          x: ended.window.x + cursor.x - ended.grab.x,
+          y: ended.window.y + cursor.y - ended.grab.y,
+        });
+      }
+      const velocity = ended?.release.velocityAt(performance.now()) ?? { x: 0, y: 0 };
+      if (velocity.x === 0 && velocity.y === 0) {
+        await keepVisible.execute();
+        return undefined;
+      }
+      const glide = await planGlide.execute(velocity);
+      const step = 1 / 120;
+      const points: ScreenPoint[] = [];
+      for (let t = 0; t < glide.duration; t += step) points.push(glide.positionAt(t));
+      points.push(glide.positionAt(glide.duration));
+      return { step, points };
+    },
+  );
   ipcMain.handle(CHANNELS.planTour, async (): Promise<TourPlan> => ({
     stops: layout.tour(),
     windowSize: WINDOW_SIZE,

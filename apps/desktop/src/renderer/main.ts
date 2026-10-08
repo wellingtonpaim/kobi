@@ -2,6 +2,7 @@ import { KobiAvatar } from '@kobi/avatar';
 import { Flight, type Point } from '@kobi/domain';
 
 import type { CurrentDisplay, KobiBridge } from '../shared/api.js';
+import { DragGesture } from './drag-gesture.js';
 import { FrameStats } from './frame-stats.js';
 import { HitSampler } from './hit-sampler.js';
 import { sampledTrajectory, type Trajectory } from './trajectory.js';
@@ -60,28 +61,40 @@ window.kobi.onWindowMoved((topLeft) => {
 
 // Arrastar com o botão esquerdo; girar com a rodinha; menu com o botão direito.
 // Soltar com o mouse em movimento arremessa o Kobi (spec 0005); clicar durante o voo o pega.
+const drag = new DragGesture({
+  start: (cursor) => {
+    canvas.style.cursor = 'grabbing';
+    tour = [];
+    motion = undefined;
+    window.kobi.dragStart(cursor);
+  },
+  move: (cursor) => {
+    window.kobi.dragMove(cursor);
+  },
+  end: (cursor) => {
+    canvas.style.cursor = 'grab';
+    void window.kobi.dragEnd(cursor).then((path) => {
+      if (path) motion = { path: sampledTrajectory(path), startedAt: performance.now() / 1000 };
+    });
+  },
+});
 canvas.addEventListener('pointerdown', (event) => {
   if (event.button !== 0) return;
   canvas.setPointerCapture(event.pointerId);
-  canvas.style.cursor = 'grabbing';
-  tour = [];
-  motion = undefined;
-  window.kobi.dragStart();
+  drag.press({ x: event.screenX, y: event.screenY });
 });
 canvas.addEventListener('pointermove', (event) => {
-  if (!canvas.hasPointerCapture(event.pointerId)) return;
-  window.kobi.dragMove();
+  drag.move(event.buttons, { x: event.screenX, y: event.screenY });
 });
-const endDrag = (event: PointerEvent): void => {
-  if (!canvas.hasPointerCapture(event.pointerId)) return;
-  canvas.releasePointerCapture(event.pointerId);
-  canvas.style.cursor = 'grab';
-  void window.kobi.dragEnd().then((path) => {
-    if (path) motion = { path: sampledTrajectory(path), startedAt: performance.now() / 1000 };
-  });
+const release = (event: PointerEvent): void => {
+  if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+  drag.release({ x: event.screenX, y: event.screenY });
 };
-canvas.addEventListener('pointerup', endDrag);
-canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('pointerup', release);
+canvas.addEventListener('pointercancel', release);
+canvas.addEventListener('lostpointercapture', () => {
+  drag.lost();
+});
 canvas.addEventListener('wheel', (event) => {
   avatar.turnBy(event.deltaY * 0.5);
 });

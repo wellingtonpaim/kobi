@@ -122,7 +122,16 @@ bx=$((sx + 150)); by=$((sy + 204))
 pointer move "$bx" "$by"; sleep 0.3; pointer press; sleep 0.1
 for i in $(seq 1 20); do pointer move $((bx - i * 15)) $((by - i * 5)); sleep 0.03; done
 sleep 0.3; pointer release; sleep 0.5
-check "arrastar −300,−100 e soltar parado" "$(kobi_frame)" "$((sx - 300)),$((sy - 100))"
+dragged="$(kobi_frame)"
+if [ "$strategy" = x11 ]; then
+  # XWayland converte o ponteiro com a posição da janela X11 que ele conhece, que chega
+  # atrasada quando a janela anda junto com o ponteiro: o soltar pode vir com até um
+  # passo de movimento de diferença (aqui, 15 px). Na estratégia B a posição é exata.
+  check "arrastar −300,−100 e soltar parado (±20 px no XWayland)" \
+    "$(awk -F, -v x=$((sx - 300)) -v y=$((sy - 100)) '{ dx = $1 - x; dy = $2 - y; print (dx * dx <= 400 && dy * dy <= 400) ? "sim" : "não (" $0 ")" }' <<< "$dragged")" "sim"
+else
+  check "arrastar −300,−100 e soltar parado" "$dragged" "$((sx - 300)),$((sy - 100))"
+fi
 
 sleep 1.5
 tx=$((bx - 300)); ty=$((by - 100))

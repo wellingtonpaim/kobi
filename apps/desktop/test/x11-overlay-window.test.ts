@@ -4,8 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { X11OverlayWindow } from '../src/main/x11-overlay-window.js';
 
 /** Imita a conversão do Electron: só aceita inteiros de 32 bits (−0 não é um deles no V8). */
-const fakeWindow = (): { window: BrowserWindow; positions: [number, number][] } => {
+const fakeWindow = () => {
   const positions: [number, number][] = [];
+  const shapes: { x: number; y: number; width: number; height: number }[][] = [];
   const isInt32 = (n: number): boolean => Number.isInteger(n) && !Object.is(n, -0) && n === (n | 0);
   const window = {
     setPosition: (x: number, y: number) => {
@@ -13,8 +14,11 @@ const fakeWindow = (): { window: BrowserWindow; positions: [number, number][] } 
       positions.push([x, y]);
     },
     getBounds: () => ({ x: 0, y: 0, width: 300, height: 400 }),
+    setShape: (rects: { x: number; y: number; width: number; height: number }[]) => {
+      shapes.push(rects);
+    },
   } as unknown as BrowserWindow;
-  return { window, positions };
+  return { window, positions, shapes };
 };
 
 describe('X11OverlayWindow', () => {
@@ -41,5 +45,29 @@ describe('X11OverlayWindow', () => {
       'invalid position',
     );
     expect(positions).toEqual([]);
+  });
+
+  it('lets the mouse reach the window only over the Kobi', async () => {
+    const { window, shapes } = fakeWindow();
+
+    await new X11OverlayWindow(window).setInteractiveRegion([
+      { x: 10.4, y: 20, width: 30, height: 40 },
+    ]);
+
+    expect(shapes).toEqual([[{ x: 10, y: 20, width: 30, height: 40 }]]);
+  });
+
+  it('opens the whole window while the Kobi is held, so a fast throw never loses the release', async () => {
+    const { window, shapes } = fakeWindow();
+    const overlay = new X11OverlayWindow(window);
+    const kobi = { x: 10, y: 20, width: 30, height: 40 };
+    await overlay.setInteractiveRegion([kobi]);
+
+    overlay.holdPointer(true);
+    await overlay.setInteractiveRegion([{ x: 0, y: 0, width: 1, height: 1 }]);
+    expect(shapes.at(-1)).toEqual([{ x: 0, y: 0, width: 300, height: 400 }]);
+
+    overlay.holdPointer(false);
+    expect(shapes.at(-1)).toEqual([{ x: 0, y: 0, width: 1, height: 1 }]);
   });
 });

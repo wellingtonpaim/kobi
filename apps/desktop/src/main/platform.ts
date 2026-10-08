@@ -1,5 +1,5 @@
 import type { Point } from '@kobi/domain';
-import { app, type BrowserWindow, screen } from 'electron';
+import { app, type BrowserWindow } from 'electron';
 
 import { GnomeShellOverlayWindow } from './gnome-shell-overlay-window.js';
 import { DbusOverlayExtension } from './overlay-extension.js';
@@ -10,8 +10,12 @@ import { X11OverlayWindow } from './x11-overlay-window.js';
 export interface Platform {
   readonly name: 'x11' | 'gnome-wayland';
   readonly overlay: PlatformOverlay;
-  /** Posição global do ponteiro, em pixels lógicos. */
-  readonly pointer: () => Promise<Point>;
+  /**
+   * Posição global do ponteiro, em pixels lógicos, num evento de arraste. `reported` são
+   * as coordenadas de tela que a interface viu no evento: exatas no X11 (inclusive as do
+   * soltar), sem sentido no Wayland.
+   */
+  readonly pointer: (reported: Point) => Promise<Point>;
 }
 
 const X11_SWITCH = '--ozone-platform=x11';
@@ -26,7 +30,9 @@ export const choosePlatform = async (window: BrowserWindow): Promise<Platform | 
     return {
       name: 'x11',
       overlay: new X11OverlayWindow(window),
-      pointer: () => Promise.resolve(screen.getCursorScreenPoint()),
+      // Não `screen.getCursorScreenPoint()`: no X11 ela repete o último evento recebido,
+      // e o último movimento antes de soltar pode nunca chegar (medido no spike).
+      pointer: (reported) => Promise.resolve(reported),
     };
   }
   const extension = new DbusOverlayExtension();

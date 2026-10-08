@@ -11,6 +11,9 @@ import { placeSilhouette, toPixel } from './window-geometry.js';
 export class X11OverlayWindow implements PlatformOverlay {
   /** Silhueta do Kobi relativa à janela; até a interface informar, vale a janela inteira. */
   private silhouetteOffset: RectProps | undefined;
+  /** Região interativa mais recente, reaplicada quando o usuário solta o Kobi. */
+  private region: readonly RectProps[] | undefined;
+  private held = false;
 
   constructor(private readonly window: BrowserWindow) {}
 
@@ -43,12 +46,26 @@ export class X11OverlayWindow implements PlatformOverlay {
   }
 
   /** No X11 a forma da janela já decide quem recebe o mouse; segurar não muda nada. */
-  holdPointer(): void {
-    // Nada a fazer.
+  /**
+   * Enquanto o Kobi está seguro, a janela inteira recebe o mouse: num arremesso rápido o
+   * ponteiro sai da silhueta antes de a janela alcançá-lo, e o soltar se perderia (o Kobi
+   * ficaria preso ao mouse). Medido no teste de interação do spike.
+   */
+  holdPointer(held: boolean): void {
+    this.held = held;
+    const { width, height } = this.window.getBounds();
+    this.applyShape(held ? [{ x: 0, y: 0, width, height }] : this.region);
   }
 
   /** Forma X11 da janela (extensão SHAPE): fora dela o clique vai para a janela de trás. */
   setInteractiveRegion(regions: readonly RectProps[]): Promise<void> {
+    this.region = regions;
+    if (!this.held) this.applyShape(regions);
+    return Promise.resolve();
+  }
+
+  private applyShape(regions: readonly RectProps[] | undefined): void {
+    if (!regions) return;
     this.window.setShape(
       regions.map((r) => ({
         x: toPixel(r.x),
@@ -57,6 +74,5 @@ export class X11OverlayWindow implements PlatformOverlay {
         height: toPixel(r.height),
       })),
     );
-    return Promise.resolve();
   }
 }

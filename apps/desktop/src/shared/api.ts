@@ -35,11 +35,14 @@ export interface KobiBridge {
   setInteractiveRegion(regions: readonly Region[]): void;
   /** Onde o Kobi aparece dentro da janela; é o que deve caber na tela. */
   setSilhouette(silhouette: Region): void;
-  /** O processo principal lê o ponteiro na tela inteira (no Wayland a interface não sabe). */
-  dragStart(): void;
-  dragMove(): void;
+  /**
+   * `cursor`: coordenadas de tela do evento. Valem no X11; no Wayland a interface não
+   * sabe onde está na tela, e o processo principal pergunta à extensão GNOME.
+   */
+  dragStart(cursor: ScreenPoint): void;
+  dragMove(cursor: ScreenPoint): void;
   /** Se o Kobi foi solto em movimento, o deslizamento até ele parar (spec 0005). */
-  dragEnd(): Promise<SampledPath | undefined>;
+  dragEnd(cursor: ScreenPoint): Promise<SampledPath | undefined>;
   showMenu(): void;
   planTour(): Promise<TourPlan>;
   onStartTour(listener: () => void): void;
