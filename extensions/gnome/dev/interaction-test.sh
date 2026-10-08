@@ -152,5 +152,19 @@ pointer fling "$tx" "$ty" 320 12; sleep 3
 landed="$(kobi_frame)"
 check "arremesso desliza até o outro monitor" "$([ "${landed%%,*}" -gt 1920 ] && echo sim || echo "não ($landed)")" "sim"
 
+# Volta ao monitor principal e troca de área de trabalho: o Kobi vai junto (achado do
+# Wellington: o GNOME prende à área ativa a janela que volta ao monitor principal).
+lx="${landed%%,*}"; ly="${landed##*,}"
+gx=$((lx + 150)); gy=$((ly + 204))
+pointer move "$gx" "$gy"; sleep 0.3; pointer press; sleep 0.1
+for i in $(seq 1 30); do pointer move $((gx - i * 60)) "$gy"; sleep 0.02; done
+sleep 0.3; pointer release; sleep 0.5
+shell_eval "global.workspace_manager.append_new_workspace(false, global.get_current_time());
+  global.workspace_manager.get_workspace_by_index(1).activate(global.get_current_time()); 'ok'" > /dev/null
+sleep 1
+check "depois de voltar ao principal, segue o usuário para outra área de trabalho" \
+  "$(shell_eval "const w = global.get_window_actors().map(a => a.get_meta_window()).find(w => w.get_wm_class() === 'io.github.wellingtonpaim.Kobi');
+    String(w.get_monitor() === global.display.get_primary_monitor() && w.is_on_all_workspaces() && w.get_compositor_private().visible)")" "true"
+
 [ "$failures" -eq 0 ] && echo "Tudo certo." || echo "$failures falha(s)."
 exit "$failures"

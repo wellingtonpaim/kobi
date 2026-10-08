@@ -289,11 +289,28 @@ export default class KobiOverlayExtension extends Extension {
     this._watches.add(stop);
   }
 
-  /** Mantém a janela do Kobi acima das outras e em todas as áreas de trabalho. */
+  /**
+   * Mantém a janela do Kobi acima das outras e em todas as áreas de trabalho. O GNOME
+   * pode desfazer isso (com áreas de trabalho só no monitor principal, a janela que
+   * volta ao principal é presa à área ativa; medido no spike): então refaz na hora.
+   */
   _claim(window) {
     if (!isKobi(window)) return false;
-    window.make_above();
-    window.stick();
+    const keep = () => {
+      if (!window.is_above()) window.make_above();
+      if (!window.is_on_all_workspaces()) window.stick();
+    };
+    keep();
+    const ids = [
+      window.connect('notify::above', keep),
+      window.connect('notify::on-all-workspaces', keep),
+    ];
+    const stop = () => {
+      for (const id of ids.splice(0)) window.disconnect(id);
+      this._watches.delete(stop);
+    };
+    ids.push(window.connect('unmanaging', stop));
+    this._watches.add(stop);
     return true;
   }
 
