@@ -1,4 +1,4 @@
-import { KeepKobiVisible, PlaceKobiOnStartup, PlanGlide } from '@kobi/application';
+import { KeepKobiVisible, PlaceKobiOnStartup, ReleaseKobi } from '@kobi/application';
 import { type Point, Rect } from '@kobi/domain';
 import { app, BrowserWindow, ipcMain, Menu } from 'electron';
 import path from 'node:path';
@@ -90,7 +90,7 @@ const start = async (): Promise<void> => {
     reportDisplay(topLeft);
   });
   const keepVisible = new KeepKobiVisible(overlay, displays);
-  const planGlide = new PlanGlide(overlay, displays);
+  const releaseKobi = new ReleaseKobi(overlay, displays);
   const moveTo = (point: ScreenPoint): void => {
     overlay.moveTo(point).catch(logFailure);
   };
@@ -179,11 +179,8 @@ const start = async (): Promise<void> => {
       console.log(
         `[kobi] soltou em (${String(at.x)}, ${String(at.y)}), velocidade (${velocity.x.toFixed(0)}, ${velocity.y.toFixed(0)}) px/s`,
       );
-      if (velocity.x === 0 && velocity.y === 0) {
-        await keepVisible.execute();
-        return undefined;
-      }
-      const glide = await planGlide.execute(velocity);
+      const glide = await releaseKobi.execute(velocity);
+      if (!glide) return undefined;
       const step = 1 / 120;
       const points: ScreenPoint[] = [];
       for (let t = 0; t < glide.duration; t += step) points.push(glide.positionAt(t));
