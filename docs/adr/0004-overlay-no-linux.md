@@ -1,6 +1,6 @@
 # 0004 — Estratégia de overlay no Linux
 
-- Status: proposta
+- Status: aceita
 - Data: 2026-10-09
 
 ## Contexto
@@ -57,12 +57,10 @@ Ambiente de referência: Fedora 44, GNOME 50, três monitores (DisplayLink 100 H
 - **Pendências da A (como alternativa):**
   - corrigir o tamanho e a posição sob escala fracionária, ou avisar o usuário de que ela não é suportada sem a extensão;
   - verificar o foco de teclado em janela `dock`, necessário para o modo texto.
-- **Custo de CPU parado acima do espírito da meta:** 22–40% de um núcleo (1,4–2,5% da máquina) só para flutuar, parecido nas duas estratégias. Não decide a estratégia, mas precisa de trabalho na Fase 2:
+- **Custo parado dentro da meta, mas alto em GPU:** 1,4–2,5% da máquina (a meta "< 5%" de `docs/performance.md` é da máquina inteira), com 26–44% da GPU integrada ocupada só para flutuar, parecido nas duas estratégias. Não decide a estratégia, mas merece trabalho na Fase 2:
   - desenhar o WebGL direto no canvas visível;
   - rever supersampling 3× somado ao MSAA;
   - usar uma taxa menor quando só a flutuação se move.
-
-  `docs/performance.md` precisa dizer se "< 5%" é da máquina ou de um núcleo.
 - **Casos da matriz não testados fisicamente:**
   - disposição empilhada e coordenadas negativas (cobertas pelos testes do domínio);
   - 4 ou mais monitores e 4K a 200%;

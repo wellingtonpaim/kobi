@@ -213,7 +213,7 @@ Memória do Kobi (PSS, todos os processos): ~306 MiB parado, ~309 MiB depois do 
 
 Leitura dos números:
 - **Fluidez dentro da meta:** a animação acompanha a taxa de cada monitor, inclusive no DisplayLink, sem custo extra visível nele (mesmo patamar do HDMI de 100 Hz).
-- **Custo parado acima do espírito da meta.** Pela máquina inteira dá 1,6–2,5% (dentro de "< 5%"), mas são 26–40% de um núcleo e 26–44% da GPU integrada só para flutuar, mais 7–12% de um núcleo no `gnome-shell`. A meta "< 5%" de `docs/performance.md` precisa dizer se é da máquina ou de um núcleo.
+- **Custo parado dentro da meta, mas alto em GPU.** Pela máquina inteira dá 1,6–2,5%, dentro de "< 5%" (a meta é da máquina inteira, definido em 2026-10-09), mas são 26–40% de um núcleo e 26–44% da GPU integrada só para flutuar, mais 7–12% de um núcleo no `gnome-shell`.
 - **100 Hz custa ~50% a mais de CPU e ~65% a mais de GPU que 60 Hz.** É o dado que a spec pedia para decidir o teto de 60 fps por padrão (decisão do ADR).
 - Mover a janela X11 custa ~6% de um núcleo no Xwayland e ~5% no `gnome-shell`.
 - Hipóteses de redução de custo para avaliar antes do ADR: desenhar o WebGL direto no canvas visível (hoje há uma cópia WebGL → canvas 2D por quadro); supersampling 3× somado ao MSAA (`antialias: true`); desenhar parado a uma taxa menor quando só a flutuação se move.
