@@ -164,6 +164,8 @@ Esta spec é, ela própria, a primeira medição real do orçamento de `docs/per
   - Na B nada disso acontece: cada monitor tem a própria escala, e o GNOME mantém a janela Wayland no mesmo lugar ao mudar a escala.
 - **Visão geral:** a janela `dock` some enquanto a visão geral está aberta (nos três monitores) e volta ao mesmo lugar; na B o Kobi vira miniatura ao lado das outras janelas (teste guiado, passo 6A).
 - **O painel de diagnóstico era recortado pela forma X11** (achado do Wellington no teste guiado): aparecia só onde encostava na silhueta, e o pedaço oscilava com a flutuação. Tudo que a janela desenha fora do Kobi (hoje o painel; no futuro balão e menu, se ficarem na mesma janela) precisa entrar na forma, e ali o clique também deixa de atravessar. A porta da plataforma ganhou `revealArea`, que no Wayland não faz nada.
+- **Hotplug:** ao desconectar o monitor onde está o Kobi, o GNOME leva a janela `dock` ao notebook (o resgate do app não precisou agir); ao reconectar, ela fica onde está, sem voltar ao monitor de antes como na B. Aceitável; voltar ao monitor de antes, se um dia for desejado, seria trabalho do app (lembrar o monitor e a posição relativa).
+- **Ids dos monitores:** no X11 o Electron dá números (`35`, `1`, `2`), não os conectores (`eDP-1`, `HDMI-1`); servem como id dentro da sessão, mas não identificam o monitor de uma sessão para outra.
 
 ### Descobertas da estratégia B (entram no ADR)
 - **O Mutter restringe janelas Wayland comuns como as X11 comuns** (`move_frame` normal): mantém a janela inteira na faixa vertical de todos os monitores e abaixo do painel. Como operação do usuário (`move_frame(true, …)`), a restrição some, e a janela vai a qualquer posição. Quem mantém o Kobi visível é o domínio (`keepOnScreen`), como na A.
@@ -292,9 +294,9 @@ Estratégia A (XWayland), mesmos passos, feitos em 2026-10-08:
 Casos da matriz, feitos em 2026-10-08:
 | Caso | A (XWayland) | B (Wayland + extensão) |
 |---|---|---|
-| Hotplug do HDMI (Kobi no monitor da direita) | (a fazer) | ok (2026-10-09): ao desconectar, o próprio GNOME leva o Kobi (e as outras janelas) ao notebook, mantendo a distância da borda esquerda; ao reconectar, devolve ao lugar de antes no monitor da direita, mesmo depois de arrastado no notebook. Sempre por cima e arrastável; o resgate do app não precisou agir (posição antes = depois) |
-| Hotplug do DisplayLink (Kobi no monitor da esquerda) | (a fazer) | ok (2026-10-09): igual ao HDMI; o DisplayLink demora mais a voltar |
-| Só o notebook (externos desconectados) | (a fazer) | ok (2026-10-09) depois de duas correções (ver descobertas): abre no canto inferior direito, arraste e arremessos ok, volta inteiro de todas as bordas |
+| Hotplug do HDMI (Kobi no monitor da direita) | ok (2026-10-09): ao desconectar, o GNOME leva o Kobi ao notebook, arrastável e por cima; ao reconectar, ele **fica no notebook** (o GNOME não guarda a posição por monitor de janelas `dock`). Aceitável. O resgate do app não precisou agir | ok (2026-10-09): ao desconectar, o próprio GNOME leva o Kobi (e as outras janelas) ao notebook, mantendo a distância da borda esquerda; ao reconectar, devolve ao lugar de antes no monitor da direita, mesmo depois de arrastado no notebook. Sempre por cima e arrastável; o resgate do app não precisou agir (posição antes = depois) |
+| Hotplug do DisplayLink (Kobi no monitor da esquerda) | ok (2026-10-09): igual ao HDMI (vai ao notebook e fica lá ao reconectar) | ok (2026-10-09): igual ao HDMI; o DisplayLink demora mais a voltar |
+| Só o notebook (externos desconectados) | ok (2026-10-09), já com as correções: abre no canto inferior direito, volta inteiro de todas as bordas (inclusive soltando além do topo com velocidade residual), quica nos arremessos. Ao reconectar os externos com o app aberto, a janela acompanha o notebook na nova disposição; depois, as bordas dos três monitores também são respeitadas | ok (2026-10-09) depois de duas correções (ver descobertas): abre no canto inferior direito, arraste e arremessos ok, volta inteiro de todas as bordas |
 | Escala fracionária (eDP-1 a 125%, externos a 100%) | **encolhe** à metade em todos os monitores e **salta para o centro de um monitor externo** a cada mudança de escala (ver descobertas da A); custo quase dobra nos externos (tabela abaixo) | ok: tamanho certo e nítido em cada monitor (1,25× e 1×), arraste colado na travessia entre escalas diferentes; ao mudar a escala com o app aberto, continua no mesmo lugar e o tamanho acompanha a escala |
 
 Medições a 125% (`bench`, % de um núcleo, média; GPU em %):
@@ -308,13 +310,20 @@ Medições a 125% (`bench`, % de um núcleo, média; GPU em %):
 
 Fluidez: as duas mantêm a taxa cheia de cada monitor; a A perde 3 a 5 quadros a cada 15 s (intervalo máximo até 36,6 ms), a B até 2 (máximo 33,4 ms). Memória: ~300 MiB nas duas. Na B os números são os mesmos de 100%; na A o custo quase dobra nos externos **com o Kobi encolhido à metade** (o mesmo número de pixels de antes); no tamanho certo seriam 4× mais pixels.
 
-Medições só com o notebook, estratégia B (`bench`, 2026-10-09): Kobi parado 23,1 / 25,8 % de um núcleo (média / p95), passeio 22,8 / 24,8; gnome-shell 8,6 (parado) e 8,7 (passeio), contra 1,8 sem o Kobi; GPU 28,4 e 26,7 %. Fluidez: 60 fps, 2 quadros perdidos em 15 s parado e 6 em 63 s de passeio (intervalo máximo 33,4 ms). Memória ~308 MiB, estável. Os mesmos números do eDP-1 com três monitores.
+Medições só com o notebook (`bench`, 2026-10-09; % de um núcleo, média / p95; GPU em %):
 
-**Onde paramos (2026-10-09):** casos de hotplug e só o notebook feitos na B. Os três monitores estão desconectados (só o notebook). Próximo passo: **os mesmos casos na A** (só o notebook, com `KOBI_OVERLAY=x11 pnpm --filter @kobi/desktop bench` e observação; depois reconectar e fazer o hotplug do HDMI e do DisplayLink).
+| Fase | A: Kobi | A: gnome-shell | A: Xwayland | A: GPU | B: Kobi | B: gnome-shell | B: GPU |
+|---|---|---|---|---|---|---|---|
+| sem o Kobi | — | 1,5 | 0,0 | 0,1 | — | 1,8 | 0,1 |
+| parado · eDP-1 (60 Hz) | 22,3 / 23,9 | 7,3 | 1,2 | 26,3 | 23,1 / 25,8 | 8,6 | 28,4 |
+| passeio | 23,6 / 26,8 | 7,5 | 1,3 | 26,5 | 22,8 / 24,8 | 8,7 | 26,7 |
+
+Fluidez a 60 fps nas duas: a A sem nenhum quadro perdido (intervalo máximo 18,1 ms); a B com 2 perdidos em 15 s parado e 6 em 63 s de passeio (máximo 33,4 ms). Memória ~300 MiB nas duas, estável. Os números da B são os mesmos do eDP-1 com três monitores; com um só monitor de 60 Hz as duas estratégias custam o mesmo.
+
+**Onde paramos (2026-10-09):** todos os casos da matriz feitos nas duas estratégias, com os três monitores reconectados. Próximo passo: comparar e escrever o ADR.
 
 Próximos passos do teste guiado:
-1. **Casos da matriz** restantes na A (em cada um, `bench` + observação): só o notebook, hotplug (desconectar e reconectar o monitor onde o Kobi está, com o app aberto; o log mostra `[kobi] monitores mudaram` e a posição depois do resgate).
-2. **Comparar** as duas estratégias e escrever o **ADR da estratégia de overlay no Linux** (em `docs/adr/`), com as tabelas, as descobertas, os casos pendentes e as consequências para as outras plataformas.
+1. **Comparar** as duas estratégias e escrever o **ADR da estratégia de overlay no Linux** (em `docs/adr/`), com as tabelas, as descobertas, os casos pendentes e as consequências para as outras plataformas.
 
 ### Como rodar
 - App: `pnpm --filter @kobi/desktop start` (estratégia A por padrão).
