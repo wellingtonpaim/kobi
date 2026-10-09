@@ -12,9 +12,11 @@ Ou seja: gastar memória para ganhar qualidade e velocidade é aceitável; gasta
 
 ## Orçamento de desempenho (metas iniciais)
 
-Medidos no ambiente de referência (notebook Ryzen 7, 16 GB, Fedora/GNOME, três monitores). Ajustar com dados reais da Fase 1.
+Medidos no ambiente de referência (notebook Ryzen 7, 16 GB, Fedora/GNOME, três monitores). **CPU em % da máquina inteira**, somando todos os processos do app (num notebook de 16 threads, 5% da máquina são 80% de um núcleo).
 
-| Situação | CPU | Memória total (app + voz, sem IA local) | Fluidez |
+Medido no spike da Fase 1 (spec 0002, ADR 0004): flutuando, 1,4–2,5% da máquina; arrastando ou no passeio, 1,5–2,6%. Dentro da meta, mas com 26–44% de GPU integrada ocupada só para flutuar: reduzir esse custo sem perder qualidade continua sendo trabalho da Fase 2.
+
+| Situação | CPU (% da máquina) | Memória total (app + voz, sem IA local) | Fluidez |
 |---|---|---|---|
 | Visível, flutuando | baixo (< 5%) | até ~1 GB | 60 fps estáveis, quadro < 16 ms |
 | Arrastando / animando | < 10% | — | 60 fps sem quedas |
@@ -27,6 +29,7 @@ Quedas de quadros e travamentos são tratados como bugs. Regressões bloqueiam o
 ## Renderização
 
 - **Qualidade máxima por padrão:** supersampling 3× (o padrão aprovado no protótipo v6) e 60 fps sempre que o Kobi estiver visível.
+- **Teto de 60 fps por padrão**, mesmo em monitores mais rápidos, com a opção de acompanhar a taxa do monitor (ADR 0004): 100 Hz custa ~50% a mais de CPU e ~65% a mais de GPU. A animação é calculada pelo tempo, então o teto não muda velocidades.
 - **Qualidade adaptativa só como proteção da fluidez:** se o tempo de quadro passar do limite (máquina mais fraca, GPU ocupada), reduzir temporariamente o supersampling para manter os 60 fps, e voltar ao máximo assim que possível.
 - **Janela do tamanho do Kobi**, nunca um canvas transparente cobrindo todos os monitores: o Kobi se move movendo a janela. Isso reduz o custo de GPU sem perder nenhuma qualidade.
 - Renderização **pausada** apenas quando o Kobi não pode ser visto (oculto, app em tela cheia, tela bloqueada).

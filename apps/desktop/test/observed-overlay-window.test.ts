@@ -15,6 +15,7 @@ const fakeOverlay = (move: () => Promise<void> = () => Promise.resolve()) => {
     setInteractiveRegion: vi.fn(() => Promise.resolve()),
     reportSilhouette: vi.fn(),
     holdPointer: vi.fn(),
+    revealArea: vi.fn(),
     show: vi.fn(() => Promise.resolve()),
   };
   const overlay: PlatformOverlay = {
@@ -53,6 +54,7 @@ describe('ObservedOverlayWindow', () => {
 
     overlay.reportSilhouette({ x: 0, y: 0, width: 1, height: 1 });
     overlay.holdPointer(true);
+    overlay.revealArea({ x: 6, y: 7, width: 8, height: 9 });
     await overlay.setInteractiveRegion([]);
     await overlay.show();
 
@@ -60,6 +62,7 @@ describe('ObservedOverlayWindow', () => {
     expect((await overlay.silhouette()).x).toBe(3);
     expect(spies.reportSilhouette).toHaveBeenCalled();
     expect(spies.holdPointer).toHaveBeenCalledWith(true);
+    expect(spies.revealArea).toHaveBeenCalledWith({ x: 6, y: 7, width: 8, height: 9 });
     expect(spies.setInteractiveRegion).toHaveBeenCalledWith([]);
     expect(spies.show).toHaveBeenCalled();
   });

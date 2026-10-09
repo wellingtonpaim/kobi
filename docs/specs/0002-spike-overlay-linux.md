@@ -133,11 +133,11 @@ Para cada estratégia, registrar numa tabela no ADR, por caso da matriz testado:
 ## Desempenho
 Esta spec é, ela própria, a primeira medição real do orçamento de `docs/performance.md`. Os números obtidos substituem as metas iniciais onde fizer sentido, registrados no ADR.
 
-## Andamento (atualizado em 2026-10-07)
+## Andamento (atualizado em 2026-10-09)
 
 ### Feito
 - **Domínio (Presença):** `Rect`, `Display`, `DisplayLayout` (monitor sob um ponto, mais próximo, o que contém a janela, `onScreen`/`keepOnScreen` pela silhueta, passeio), `Flight` (voo, spec 0004) e `Glide` (arremesso, spec 0005). Testes cobrem a matriz de monitores (`@kobi/domain/testing`).
-- **Aplicação:** portas `OverlayWindow` (posição, silhueta, região interativa) e `DisplaySource`; casos de uso `PlaceKobiOnStartup`, `KeepKobiVisible`, `PlanGlide`.
+- **Aplicação:** portas `OverlayWindow` (posição, silhueta, região interativa) e `DisplaySource`; casos de uso `PlaceKobiOnStartup`, `KeepKobiVisible`, `ReleaseKobi`.
 - **Avatar:** v6 portado para three.js 0.186, idêntico ao protótipo (diferença média < 1/255, `packages/avatar/dev/capture.ts`); cores do corpo, giro, pêndulo e poeira (spec 0004); alça do fone com o dobro da espessura.
 - **Estratégia B (Wayland nativo + extensão GNOME) implementada**: extensão em `extensions/gnome/` (GPL-2.0-or-later, D-Bus `io.github.wellingtonpaim.Kobi.Overlay`) e adaptador `GnomeShellOverlayWindow`. Validada de ponta a ponta numa sessão GNOME 50 aninhada e headless com ponteiro virtual (`extensions/gnome/dev/interaction-test.sh`; com `KOBI_OVERLAY=x11` o mesmo roteiro testa a estratégia A no XWayland aninhado): transparência, acima e em todas as áreas de trabalho, posição inicial, clique atravessando, clique no corpo, arraste e arremesso entre monitores.
 - **Escolha da estratégia em tempo de execução:** `KOBI_OVERLAY=wayland` usa a B; se a extensão não estiver ativa, o app reabre via XWayland (estratégia A), sem falhar.
@@ -157,16 +157,34 @@ Esta spec é, ela própria, a primeira medição real do orçamento de `docs/per
 - **O evento `moved` não dispara quando o próprio app chama `setPosition`** (X11): o monitor atual passou a ser conferido a cada movimento, com o layout em cache.
 - **No Wayland nativo o Electron informa `displayFrequency = 0`** em todos os monitores (cai em `UNKNOWN_REFRESH_FALLBACK`). A estratégia B precisa obter a taxa por outro caminho (extensão ou medida pelo intervalo do rAF).
 - O XWayland informa 59,88 Hz para o eDP-1, que o Mutter declara a 60,003 Hz.
+- **Escala fracionária leva o XWayland inteiro a 2×** (GNOME 50, escala nativa do XWayland): com o eDP-1 a 125%, as coordenadas X11 dobram (o eDP-1 vira 3072×1920 no `xrandr`, `Xft.dpi` 192) e o Electron vê **todos** os monitores a 2×, inclusive os de 100%. Consequências medidas:
+  - **O Kobi encolhe à metade em todos os monitores:** a janela X11 mantém o tamanho em pixels (300×400), que a 2× valem 150×200 lógicos. Corrigível no app (refazer o tamanho lógico quando a escala muda), ainda não feito.
+  - **O GNOME move a janela X11 para outro monitor quando a escala do XWayland muda:** preserva a posição relativa (≈43% × 31% antes e depois), mas no monitor errado (centro do monitor da esquerda numa vez, do da direita em outra). Medido com a posição real da janela X11 lida a cada 100 ms e com o log do app: no primeiro aviso de mudança a janela já estava no outro monitor, e o resgate (`KeepKobiVisible`) não a moveu. Contornável só no app, lembrando o monitor e a posição relativa e voltando para eles; ainda não feito.
+  - **Custo de 4× pixels também nos monitores de 100%,** mais a redução feita pelo compositor: tabela de 125% acima.
+  - Na B nada disso acontece: cada monitor tem a própria escala, e o GNOME mantém a janela Wayland no mesmo lugar ao mudar a escala.
+- **Visão geral:** a janela `dock` some enquanto a visão geral está aberta (nos três monitores) e volta ao mesmo lugar; na B o Kobi vira miniatura ao lado das outras janelas (teste guiado, passo 6A).
+- **O painel de diagnóstico era recortado pela forma X11** (achado do Wellington no teste guiado): aparecia só onde encostava na silhueta, e o pedaço oscilava com a flutuação. Tudo que a janela desenha fora do Kobi (hoje o painel; no futuro balão e menu, se ficarem na mesma janela) precisa entrar na forma, e ali o clique também deixa de atravessar. A porta da plataforma ganhou `revealArea`, que no Wayland não faz nada.
+- **Hotplug:** ao desconectar o monitor onde está o Kobi, o GNOME leva a janela `dock` ao notebook (o resgate do app não precisou agir); ao reconectar, ela fica onde está, sem voltar ao monitor de antes como na B. Aceitável; voltar ao monitor de antes, se um dia for desejado, seria trabalho do app (lembrar o monitor e a posição relativa).
+- **Ids dos monitores:** no X11 o Electron dá números (`35`, `1`, `2`), não os conectores (`eDP-1`, `HDMI-1`); servem como id dentro da sessão, mas não identificam o monitor de uma sessão para outra.
 
 ### Descobertas da estratégia B (entram no ADR)
 - **O Mutter restringe janelas Wayland comuns como as X11 comuns** (`move_frame` normal): mantém a janela inteira na faixa vertical de todos os monitores e abaixo do painel. Como operação do usuário (`move_frame(true, …)`), a restrição some, e a janela vai a qualquer posição. Quem mantém o Kobi visível é o domínio (`keepOnScreen`), como na A.
 - **`setShape` não vira região de entrada no Ozone Wayland:** o clique na área transparente continuava indo para o Kobi. **`setIgnoreMouseEvents(true)` funciona.** A extensão acompanha o ponteiro pelo `CursorTracker` do Mutter (evento, sem polling), confere a região interativa enviada pelo app e avisa só o Kobi (sinal D-Bus endereçado) quando o ponteiro entra ou sai dela; o app alterna `setIgnoreMouseEvents` e, durante o arraste, não solta o mouse. Diferente da A, o desenho não é recortado: a região de entrada é separada do desenho.
+- **O GNOME tira o "todas as áreas de trabalho" ao voltar ao monitor principal** (achado do Wellington no teste guiado; reproduzido na sessão aninhada): com áreas de trabalho só no monitor principal (padrão), a janela que volta ao principal é presa à área ativa, e o Kobi deixava de acompanhar o usuário. A extensão agora refaz "acima" e "todas as áreas de trabalho" assim que o GNOME os desfaz (por evento). Coberto pelo teste de interação.
+- **Visão geral:** o Kobi aparece como miniatura ao lado das outras janelas e volta ao mesmo lugar ao sair (confirmado na sessão real).
+- **Tela cheia:** com "acima", o Kobi continua por cima de um vídeo em tela cheia em qualquer monitor, sem mudar de posição (teste guiado, Passo 7). Para se esconder em tela cheia (Fase 2), o app precisa saber quando o monitor onde ele está tem uma janela em tela cheia; no GNOME a extensão pode avisar por evento (sinal `in-fullscreen-changed` e `get_monitor_in_fullscreen` do Mutter), sem polling.
+- **`setIgnoreMouseEvents(true)` só vale quando o ponteiro sai da janela inteira** (achado do Wellington no teste guiado; reproduzido isolado): depois de passar o mouse sobre o corpo, a área transparente continuava segurando o clique. Causa: o Clutter guarda a área em volta do ponteiro onde a escolha de quem recebe o mouse não muda e não a refaz quando a região de entrada ou a reatividade muda. **Solução (extensão versão 3):** a própria extensão liga e desliga a reatividade da superfície do Kobi conforme o ponteiro está ou não sobre o corpo (congelando enquanto há botão pressionado) e pede um relayout do ator, que invalida aquele cache; o app deixa de alternar `setIgnoreMouseEvents`. O efeito é imediato, mesmo saltando direto para o corpo e clicando parado.
 - **No Wayland o Electron não sabe onde a janela está:** `getBounds()` fica na posição inicial e `screenX`/`screenY` valem 0; o ponteiro só é conhecido relativo à janela. Por isso a posição da janela agora vem do processo principal (após cada movimento) e o arraste e o arremesso leem o ponteiro global no processo principal (`screen.getCursorScreenPoint()` no X11, extensão no Wayland), igual nas duas estratégias.
 - **app_id:** vem do `desktopName` do `package.json` (`io.github.wellingtonpaim.Kobi.desktop` → `io.github.wellingtonpaim.Kobi`, o mesmo id previsto para o Flatpak); `--class` não vale no Wayland. A janela nasce com `wm_class` nulo e o app_id chega depois (`notify::wm-class`).
 - **A janela só existe para o compositor depois de aparecer:** a posição inicial é guardada e aplicada assim que a extensão enxerga a janela.
 - **D-Bus é rápido o bastante:** ida e volta média de 0,43 ms (1000 `MoveTo` seguidos); os movimentos se fundem no mais recente enquanto um está a caminho, sem fila.
 - **Visão geral:** o Kobi aparece como miniatura de janela dentro da área de trabalho, não flutuando por cima (observado na sessão aninhada; confirmar na sessão real).
 - Segurança: a extensão só age sobre a janela com o app_id do Kobi **e** do mesmo processo que chamou (PID do remetente D-Bus).
+- **Hotplug:** o Mutter guarda a posição de cada janela por monitor. Ao desconectar, leva a janela ao monitor que sobra mantendo a distância da borda; ao reconectar, devolve ao lugar de antes. O resgate do app (`KeepKobiVisible`) não precisou agir no GNOME, mas segue necessário nas outras plataformas e no vão entre monitores. Ao desconectar, o GNOME também refaz a disposição (o monitor que sobra pode trocar de lado em relação à mesa) e avisa `MonitorsChanged` duas ou três vezes por evento, às vezes primeiro com a lista antiga; o app trata cada aviso como uma releitura completa, sem efeito colateral.
+
+### Correções vindas do teste guiado (valem para as duas estratégias)
+- **Solto fora da tela com o mouse ainda se mexendo, o Kobi ficava lá** (achado do Wellington, 2026-10-09: arrastando devagar para além do topo, às vezes sobrava só um pedaço visível). O deslizamento não começa fora da tela, e o resgate só era chamado com velocidade exatamente zero; o arraste lento deixa uma velocidade residual (−20 a −150 px/s no log). Agora o caso de uso `ReleaseKobi` decide: desliza se puder, senão (parado, lento demais ou fora da tela) resgata.
+- **Encostado na borda, uma fatia do fone e do braço saía da tela** (mesmo teste). A silhueta era a pose daquele instante, e a flutuação parada a varia até 48 px (o balanço lateral tem ciclo de ~14 s). Agora a silhueta informada é o envelope das poses paradas dos últimos 15 s (a inclinação em movimento conta só enquanto dura). Com o painel de diagnóstico aberto, ele também entra na área que deve caber na tela.
 
 ### Medições da estratégia A (2026-10-07)
 `pnpm --filter @kobi/desktop bench` (ambiente de referência, escala 1.0, app sem foco). CPU em % de um núcleo (média / p95 por segundo); a máquina tem 16 threads. GPU pelo `gpu_busy_percent` da Radeon integrada.
@@ -195,39 +213,49 @@ Memória do Kobi (PSS, todos os processos): ~306 MiB parado, ~309 MiB depois do 
 
 Leitura dos números:
 - **Fluidez dentro da meta:** a animação acompanha a taxa de cada monitor, inclusive no DisplayLink, sem custo extra visível nele (mesmo patamar do HDMI de 100 Hz).
-- **Custo parado acima do espírito da meta.** Pela máquina inteira dá 1,6–2,5% (dentro de "< 5%"), mas são 26–40% de um núcleo e 26–44% da GPU integrada só para flutuar, mais 7–12% de um núcleo no `gnome-shell`. A meta "< 5%" de `docs/performance.md` precisa dizer se é da máquina ou de um núcleo.
+- **Custo parado dentro da meta, mas alto em GPU.** Pela máquina inteira dá 1,6–2,5%, dentro de "< 5%" (a meta é da máquina inteira, definido em 2026-10-09), mas são 26–40% de um núcleo e 26–44% da GPU integrada só para flutuar, mais 7–12% de um núcleo no `gnome-shell`.
 - **100 Hz custa ~50% a mais de CPU e ~65% a mais de GPU que 60 Hz.** É o dado que a spec pedia para decidir o teto de 60 fps por padrão (decisão do ADR).
 - Mover a janela X11 custa ~6% de um núcleo no Xwayland e ~5% no `gnome-shell`.
 - Hipóteses de redução de custo para avaliar antes do ADR: desenhar o WebGL direto no canvas visível (hoje há uma cópia WebGL → canvas 2D por quadro); supersampling 3× somado ao MSAA (`antialias: true`); desenhar parado a uma taxa menor quando só a flutuação se move.
 
 ### Medições da estratégia B (2026-10-08)
-Mesmo `bench`, com `KOBI_OVERLAY=wayland`, na sessão real com a extensão ativa (sessão recém-aberta; a linha de base do `gnome-shell` ficou mais alta que na medição da A). Os monitores aparecem com os ids do Electron no Wayland: 5 = DVI-I-2 (DisplayLink), 4 = eDP-1, 3 = HDMI-1.
+Mesmo `bench`, com `KOBI_OVERLAY=wayland`, na sessão real com a extensão versão 2 (monitores, principal e taxas lidos do GNOME). A linha de base do `gnome-shell` (1,2%) é a mesma da medição da A (1,1%), então as duas tabelas são comparáveis.
 
 | Fase | Kobi (todos os processos) | Kobi (% da máquina) | gnome-shell | Xwayland | GPU ocupada |
 |---|---|---|---|---|---|
-| sem o Kobi | — | — | 3,4 / 5,9 | 0,9 / 2,0 | 0,7 / 1,0 |
-| parado · DVI-I-2 DisplayLink (100 Hz) | 32,1 / 35,1 | 2,0 | 16,3 / 17,5 | 1,2 / 1,9 | 44,4 / 45,0 |
-| parado · eDP-1 (60 Hz) | 23,6 / 25,4 | 1,5 | 11,7 / 15,6 | 0,7 / 1,0 | 31,0 / 36,0 |
-| parado · HDMI-1 (100 Hz) | 35,7 / 40,8 | 2,2 | 17,1 / 20,4 | 0,9 / 2,9 | 44,7 / 47,0 |
-| passeio de teste contínuo | 39,4 / 53,6 | 2,5 | 19,8 / 27,1 | 0,8 / 2,9 | 38,3 / 53,0 |
+| sem o Kobi | — | — | 1,2 / 2,0 | 0,0 / 0,0 | 0 / 0 |
+| parado · DVI-I-2 DisplayLink (100 Hz) | 35,7 / 39,8 | 2,2 | 15,3 / 17,5 | 0,0 / 0,0 | 44,5 / 46,0 |
+| parado · eDP-1 (60 Hz) | 23,8 / 28,3 | 1,5 | 9,8 / 11,7 | 0,0 / 0,0 | 27,4 / 29,0 |
+| parado · HDMI-1 (100 Hz) | 34,6 / 36,9 | 2,2 | 14,3 / 15,6 | 0,0 / 0,0 | 44,2 / 45,0 |
+| passeio de teste contínuo | 35,9 / 45,8 | 2,2 | 17,6 / 22,4 | 0,0 / 0,0 | 34,9 / 43,0 |
 
-| Fase · monitor | s | fps médio | fps mín | intervalo p95 | intervalo máx | render p95 |
-|---|---|---|---|---|---|---|
-| parado · DVI-I-2 | 15 | 100,5 | 100 | 10,1 ms | 10,1 ms | 0,8 ms |
-| parado · eDP-1 | 15 | 60,9 | 60 | 16,8 ms | 24,9 ms | 0,9 ms |
-| parado · HDMI-1 | 16 | 99,9 | 95 | 10,1 ms | 30,0 ms | 1,5 ms |
-| passeio · DVI-I-2 | 12 | 100,3 | 100 | 10,1 ms | 10,1 ms | 1,4 ms |
-| passeio · eDP-1 | 19 | 60,7 | 59 | 16,8 ms | 33,3 ms | 1,1 ms |
-| passeio · HDMI-1 | 15 | 100,4 | 100 | 10,1 ms | 10,1 ms | 0,9 ms |
-| passeio · segundos com travessia | 15 | 89,2 | 70 | 16,7 ms | 33,3 ms | 1,4 ms |
+| Fase · monitor | s | fps médio | fps mín | perdidos | intervalo p95 | intervalo máx | render p95 |
+|---|---|---|---|---|---|---|---|
+| parado · DVI-I-2 (100 Hz) | 15 | 100,3 | 99 | 1 | 10,1 ms | 20,0 ms | 0,7 ms |
+| parado · eDP-1 (60 Hz) | 15 | 60,8 | 60 | 1 | 16,8 ms | 33,3 ms | 0,8 ms |
+| parado · HDMI-1 (100 Hz) | 16 | 100,3 | 99 | 1 | 10,1 ms | 20,0 ms | 0,8 ms |
+| passeio · DVI-I-2 | 12 | 100,1 | 99 | 1 | 10,1 ms | 20,0 ms | 1,2 ms |
+| passeio · eDP-1 | 19 | 60,8 | 60 | 0 | 16,8 ms | 16,8 ms | 1,1 ms |
+| passeio · HDMI-1 | 15 | 100,4 | 99 | 1 | 10,1 ms | 20,1 ms | 0,9 ms |
+| passeio · segundos com travessia | 15 | 89,5 | 71 | (\*) | 16,7 ms | 28,3 ms | 0,9 ms |
 
-Memória do Kobi (PSS): ~303 MiB parado, ~327 MiB depois do passeio (na A, 306 → 309 MiB; acompanhar se cresce com o tempo).
+(\*) Mesma distorção de contagem da tabela da A.
 
-Leitura comparada com a A:
-- **Fluidez igual:** taxa cheia de cada monitor nas duas, no máximo um ou dois quadros perdidos em travessias.
-- **CPU do Kobi um pouco menor na B** (23,6–35,7% contra 26,1–39,5% de um núcleo parado) e **o Xwayland sai da conta** (no passeio, 0,8% contra 7,9%). **O `gnome-shell` gasta um pouco mais** (11,7–17,1% contra 8,3–13,0% parado; parte vem da linha de base mais alta desta sessão).
-- **GPU igual** (~44% a 100 Hz, ~26–31% a 60 Hz): o custo é a renderização do Kobi, não a estratégia.
-- Os quadros perdidos não aparecem na tabela da B porque a contagem usa a taxa do monitor, que o Electron não informa no Wayland (ver abaixo).
+**Comparação com a A** (% de um núcleo):
+
+| | A (XWayland) | B (Wayland + extensão) |
+|---|---|---|
+| Kobi parado · DVI-I-2 / eDP-1 / HDMI-1 | 39,5 / 26,1 / 36,9 | 35,7 / 23,8 / 34,6 |
+| Kobi no passeio | 41,6 | 35,9 |
+| gnome-shell + Xwayland parado · DVI-I-2 / eDP-1 / HDMI-1 | 14,9 / 9,5 / 13,0 | 15,3 / 9,8 / 14,3 |
+| gnome-shell + Xwayland no passeio | 23,8 | 17,6 |
+| GPU | igual | igual |
+| Memória parado | ~300 MiB | ~305 MiB |
+| Memória em movimento contínuo | estável (299 → 301 MiB em 4 min) | sobe ~60 MiB e estabiliza (297 → ~355 MiB do 4º ao 9º minuto de 10) |
+
+- **Fluidez igual** nas duas: taxa cheia de cada monitor, cerca de um quadro perdido a cada 15 s.
+- **A B gasta menos CPU** no Kobi parado e sobretudo em movimento (o Xwayland sai da conta); parado, o custo de compositor fica igual.
+- **Memória da B em movimento:** o processo principal cresce porque cada quadro em movimento é uma chamada D-Bus. Isolando a biblioteca (`@homebridge/dbus-native`, 100 mil chamadas `GetPointer` fora do Electron), o heap do V8 fica estável e a memória residente sobe até ~180 MiB nas primeiras 30 mil chamadas e para (é o alocador, não acúmulo); a `dbus-next` se comporta igual. Fica para o teste de longa duração da Fase 2 (dias aberto) confirmar, e para uma otimização possível: menos chamadas por movimento.
 
 ### Lacunas do Electron no Wayland (precisam de outra fonte na estratégia B)
 O protocolo Wayland não entrega aos apps informações que o domínio usa. Medido na sessão real:
@@ -236,13 +264,68 @@ O protocolo Wayland não entrega aos apps informações que o domínio usa. Medi
 - **Taxa de atualização 0** em todos os monitores (cai em 60 Hz).
 **Resolvido com a extensão (versão 2):** `GetMonitors` devolve, por monitor, conector, geometria, área útil sem o painel, escala e principal (pelo Shell) e a taxa de atualização (pela interface D-Bus pública `org.gnome.Mutter.DisplayConfig`, cruzada pelo conector); o sinal `MonitorsChanged` avisa hotplug, escala, disposição e área útil, sem polling. No app, `GnomeShellDisplaySource` implementa a porta `DisplaySource` com esses dados (ids = conectores). Com a extensão na versão 1, o app segue com a API `screen` do Electron e avisa no log. Validado na sessão aninhada; falta conferir na sessão real.
 
-### Falta
-1. **Fechar a estratégia A:** observações do Wellington sobre a hipótese 2 (por cima de janela maximizada, da Visão geral e de app em tela cheia); fluidez ao **arrastar** com o mouse (o painel de diagnóstico agora mostra intervalo entre quadros e quadros perdidos); casos da matriz ainda não testados (escala fracionária, monitor único, hotplug), rodando o `bench` em cada um.
-2. **Medir a estratégia B na sessão real:** instalar a extensão na sessão do Wellington (exige sair e entrar de novo no GNOME), rodar `KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop bench` e as mesmas observações da A (hipótese 2, arraste, nitidez). A sessão aninhada valida o funcionamento, mas não serve para medir desempenho.
-3. **Comparar** as duas com a mesma tabela de medições e escrever o **ADR da estratégia de overlay no Linux**.
+### Teste guiado na sessão real (concluído)
+O Wellington executa cada passo e conta o que viu; o Claude confere pelo log do app (`[kobi] …`). Um passo por vez, respostas simples ("ok" ou o que foi diferente).
+
+Estratégia B (Wayland + extensão), feitos em 2026-10-08:
+| Passo | Resultado |
+|---|---|
+| 1. Onde aparece | ok: canto inferior direito do eDP-1 (principal), nítido, fundo transparente, 60 fps |
+| 2. Clique atravessa | ok depois da correção da extensão v3 (antes: depois de passar sobre o corpo, a área transparente segurava o clique) |
+| 3. Arrastar entre os monitores | ok: colado ao cursor, solta onde parou, painel troca de monitor e fps |
+| 4. Arremessar | ok: freia suave, atravessa monitores, não some, pega no ar (velocidades de ~300 a ~18.800 px/s no log) |
+| 5. Janela maximizada em foco | ok: continua por cima |
+| 6A. Visão geral | miniatura ao lado das outras janelas; volta ao mesmo lugar |
+| 6B. Trocar de área de trabalho | falhou e foi corrigido (commit `99d22cc`): o GNOME prendia o Kobi à área ativa ao voltar ao principal. Refeito com a extensão reinstalada e novo login: ok, indo e voltando dos monitores da esquerda e da direita, o Kobi continua visível e no mesmo lugar ao trocar de área de trabalho |
+| 7. Tela cheia | o Kobi fica por cima do vídeo em tela cheia (F no navegador) nos três monitores e não sai do lugar ao entrar ou sair dela |
+
+Estratégia A (XWayland), mesmos passos, feitos em 2026-10-08:
+| Passo | Resultado |
+|---|---|
+| 1. Onde aparece | ok depois de uma correção: o painel de diagnóstico aparecia só em parte, e o pedaço oscilava com a flutuação (a forma X11 recorta o desenho e só cobria a silhueta). Agora a área do painel entra na forma (`revealArea`) |
+| 2. Clique atravessa | ok, inclusive logo depois de passar o mouse pelo corpo |
+| 3. Arrastar entre os monitores | ok |
+| 4. Arremessar | ok: 15 arremessos de ~50 a ~18.400 px/s, para os dois lados, pegando no ar; nunca ficou preso ao mouse |
+| 5. Janela maximizada em foco | ok: continua por cima |
+| 6A. Visão geral | **some** nos três monitores (o GNOME não mostra janelas `dock` na visão geral) e volta ao mesmo lugar ao sair |
+| 6B. Trocar de área de trabalho | ok, indo e voltando dos monitores da esquerda e da direita |
+| 7. Tela cheia | por cima do vídeo nos três monitores, sem sair do lugar (igual à B) |
+
+Casos da matriz, feitos em 2026-10-08:
+| Caso | A (XWayland) | B (Wayland + extensão) |
+|---|---|---|
+| Hotplug do HDMI (Kobi no monitor da direita) | ok (2026-10-09): ao desconectar, o GNOME leva o Kobi ao notebook, arrastável e por cima; ao reconectar, ele **fica no notebook** (o GNOME não guarda a posição por monitor de janelas `dock`). Aceitável. O resgate do app não precisou agir | ok (2026-10-09): ao desconectar, o próprio GNOME leva o Kobi (e as outras janelas) ao notebook, mantendo a distância da borda esquerda; ao reconectar, devolve ao lugar de antes no monitor da direita, mesmo depois de arrastado no notebook. Sempre por cima e arrastável; o resgate do app não precisou agir (posição antes = depois) |
+| Hotplug do DisplayLink (Kobi no monitor da esquerda) | ok (2026-10-09): igual ao HDMI (vai ao notebook e fica lá ao reconectar) | ok (2026-10-09): igual ao HDMI; o DisplayLink demora mais a voltar |
+| Só o notebook (externos desconectados) | ok (2026-10-09), já com as correções: abre no canto inferior direito, volta inteiro de todas as bordas (inclusive soltando além do topo com velocidade residual), quica nos arremessos. Ao reconectar os externos com o app aberto, a janela acompanha o notebook na nova disposição; depois, as bordas dos três monitores também são respeitadas | ok (2026-10-09) depois de duas correções (ver descobertas): abre no canto inferior direito, arraste e arremessos ok, volta inteiro de todas as bordas |
+| Escala fracionária (eDP-1 a 125%, externos a 100%) | **encolhe** à metade em todos os monitores e **salta para o centro de um monitor externo** a cada mudança de escala (ver descobertas da A); custo quase dobra nos externos (tabela abaixo) | ok: tamanho certo e nítido em cada monitor (1,25× e 1×), arraste colado na travessia entre escalas diferentes; ao mudar a escala com o app aberto, continua no mesmo lugar e o tamanho acompanha a escala |
+
+Medições a 125% (`bench`, % de um núcleo, média; GPU em %):
+
+| Fase | A: Kobi | A: gnome-shell | A: Xwayland | A: GPU | B: Kobi | B: gnome-shell | B: GPU |
+|---|---|---|---|---|---|---|---|
+| parado · DVI-I-2 (100 Hz, 1×) | 62,3 | 21,2 | 2,9 | 77,3 | 36,9 | 14,4 | 43,3 |
+| parado · eDP-1 (60 Hz, 1,25×) | 28,3 | 9,3 | 1,3 | 44,7 | 24,1 | 9,3 | 32,1 |
+| parado · HDMI-1 (100 Hz, 1×) | 64,0 | 19,8 | 3,0 | 78,1 | 34,7 | 12,7 | 43,8 |
+| passeio | 65,6 | 26,4 | 12,8 | 65,2 | 40,3 | 18,9 | 38,2 |
+
+Fluidez: as duas mantêm a taxa cheia de cada monitor; a A perde 3 a 5 quadros a cada 15 s (intervalo máximo até 36,6 ms), a B até 2 (máximo 33,4 ms). Memória: ~300 MiB nas duas. Na B os números são os mesmos de 100%; na A o custo quase dobra nos externos **com o Kobi encolhido à metade** (o mesmo número de pixels de antes); no tamanho certo seriam 4× mais pixels.
+
+Medições só com o notebook (`bench`, 2026-10-09; % de um núcleo, média / p95; GPU em %):
+
+| Fase | A: Kobi | A: gnome-shell | A: Xwayland | A: GPU | B: Kobi | B: gnome-shell | B: GPU |
+|---|---|---|---|---|---|---|---|
+| sem o Kobi | — | 1,5 | 0,0 | 0,1 | — | 1,8 | 0,1 |
+| parado · eDP-1 (60 Hz) | 22,3 / 23,9 | 7,3 | 1,2 | 26,3 | 23,1 / 25,8 | 8,6 | 28,4 |
+| passeio | 23,6 / 26,8 | 7,5 | 1,3 | 26,5 | 22,8 / 24,8 | 8,7 | 26,7 |
+
+Fluidez a 60 fps nas duas: a A sem nenhum quadro perdido (intervalo máximo 18,1 ms); a B com 2 perdidos em 15 s parado e 6 em 63 s de passeio (máximo 33,4 ms). Memória ~300 MiB nas duas, estável. Os números da B são os mesmos do eDP-1 com três monitores; com um só monitor de 60 Hz as duas estratégias custam o mesmo.
+
+**Conclusão (2026-10-09):** todos os casos da matriz feitos nas duas estratégias. Comparação e decisão no **ADR 0004** (`docs/adr/0004-overlay-no-linux.md`).
 
 ### Como rodar
 - App: `pnpm --filter @kobi/desktop start` (estratégia A por padrão).
 - Estratégia B: `KOBI_OVERLAY=wayland pnpm --filter @kobi/desktop start` (com a extensão ativa). Sessão aninhada e teste de interação: ver `extensions/gnome/README.md`.
-- Medições: `pnpm --filter @kobi/desktop bench` (~2,5 min; feche o Kobi antes e não mexa no computador). Linha de base sem o Kobi, parado em cada monitor e passeio contínuo; imprime as tabelas acima. Durações por `KOBI_BENCH_BASELINE`, `KOBI_BENCH_IDLE` (por monitor) e `KOBI_BENCH_TOUR`; `KOBI_OVERLAY=wayland` para a estratégia B.
+- Teste guiado: abrir com o painel de diagnóstico desde o início e guardar o log, por exemplo `cd apps/desktop && node_modules/.bin/electron . --ozone-platform=wayland --kobi-diagnostics > /tmp/diario.log 2>&1` (rodar com `env -u ELECTRON_RUN_AS_NODE` no terminal do VS Code). O log mostra monitores lidos, mudanças de monitor, resgate e cada soltar com a velocidade.
+- Teste automático de interação nas duas estratégias: `pnpm --filter @kobi/desktop build && extensions/gnome/dev/interaction-test.sh` (B) e `KOBI_OVERLAY=x11 extensions/gnome/dev/interaction-test.sh` (A).
+- Medições: `pnpm --filter @kobi/desktop bench` (inclui memória por fase: início, fim, máximo e variação por minuto) (~2,5 min; feche o Kobi antes e não mexa no computador). Linha de base sem o Kobi, parado em cada monitor e passeio contínuo; imprime as tabelas acima. Durações por `KOBI_BENCH_BASELINE`, `KOBI_BENCH_IDLE` (por monitor) e `KOBI_BENCH_TOUR`; `KOBI_OVERLAY=wayland` para a estratégia B.
 - Página do avatar, comparação com o v6 e playground de movimento: `pnpm --filter @kobi/avatar dev` → `http://localhost:5173/compare.html` e `/playground.html`.

@@ -66,6 +66,8 @@ pointer() {
       .create_virtual_device(Clutter.InputDeviceType.POINTER_DEVICE);
     const p = global._kobiPointer, t = GLib.get_monotonic_time(); $action 'ok'" > /dev/null
 }
+# Salta direto para o ponto e clica parado: o caso mais exigente para a troca de quem
+# recebe o mouse (um mouse real manda vários movimentos no caminho).
 click() {
   pointer move "$1" "$2"; sleep 0.3
   pointer press; sleep 0.05; pointer release; sleep 0.4
@@ -122,6 +124,11 @@ click $((sx + 10)) $((sy + 14))
 check "clique na área transparente vai para a janela de trás" "$(($(behind_clicks) - base))" "1"
 click $((sx + 150)) $((sy + 204))
 check "clique no corpo fica com o Kobi" "$(($(behind_clicks) - base))" "1"
+# Depois de passar pelo corpo, a área transparente volta a deixar o clique passar
+# (achado do Wellington: antes, só voltava ao sair da janela inteira).
+pointer move $((sx + 150)) $((sy + 204)); sleep 0.4
+click $((sx + 12)) $((sy + 16))
+check "depois de passar pelo corpo, a área transparente deixa o clique passar" "$(($(behind_clicks) - base))" "2"
 
 bx=$((sx + 150)); by=$((sy + 204))
 pointer move "$bx" "$by"; sleep 0.3; pointer press; sleep 0.1
@@ -144,6 +151,20 @@ pointer move "$tx" "$ty"; sleep 0.3; pointer press; sleep 0.1
 pointer fling "$tx" "$ty" 320 12; sleep 3
 landed="$(kobi_frame)"
 check "arremesso desliza até o outro monitor" "$([ "${landed%%,*}" -gt 1920 ] && echo sim || echo "não ($landed)")" "sim"
+
+# Volta ao monitor principal e troca de área de trabalho: o Kobi vai junto (achado do
+# Wellington: o GNOME prende à área ativa a janela que volta ao monitor principal).
+lx="${landed%%,*}"; ly="${landed##*,}"
+gx=$((lx + 150)); gy=$((ly + 204))
+pointer move "$gx" "$gy"; sleep 0.3; pointer press; sleep 0.1
+for i in $(seq 1 30); do pointer move $((gx - i * 60)) "$gy"; sleep 0.02; done
+sleep 0.3; pointer release; sleep 0.5
+shell_eval "global.workspace_manager.append_new_workspace(false, global.get_current_time());
+  global.workspace_manager.get_workspace_by_index(1).activate(global.get_current_time()); 'ok'" > /dev/null
+sleep 1
+check "depois de voltar ao principal, segue o usuário para outra área de trabalho" \
+  "$(shell_eval "const w = global.get_window_actors().map(a => a.get_meta_window()).find(w => w.get_wm_class() === 'io.github.wellingtonpaim.Kobi');
+    String(w.get_monitor() === global.display.get_primary_monitor() && w.is_on_all_workspaces() && w.get_compositor_private().visible)")" "true"
 
 [ "$failures" -eq 0 ] && echo "Tudo certo." || echo "$failures falha(s)."
 exit "$failures"

@@ -1,4 +1,4 @@
-import { KeepKobiVisible, PlaceKobiOnStartup, PlanGlide } from '@kobi/application';
+import { KeepKobiVisible, PlaceKobiOnStartup, ReleaseKobi } from '@kobi/application';
 import { type Point, Rect } from '@kobi/domain';
 import { app, BrowserWindow, ipcMain, Menu } from 'electron';
 import path from 'node:path';
@@ -42,6 +42,9 @@ const createWindow = (): BrowserWindow =>
       backgroundThrottling: false,
     },
   });
+
+/** Abre o painel de diagnóstico (fps, quadros perdidos, monitor) desde o início. */
+const DIAGNOSTICS_SWITCH = '--kobi-diagnostics';
 
 /** Falhas ao mover a janela não podem derrubar o app: ficam registradas e o Kobi segue. */
 const logFailure = (error: unknown): void => {
@@ -87,7 +90,7 @@ const start = async (): Promise<void> => {
     reportDisplay(topLeft);
   });
   const keepVisible = new KeepKobiVisible(overlay, displays);
-  const planGlide = new PlanGlide(overlay, displays);
+  const releaseKobi = new ReleaseKobi(overlay, displays);
   const moveTo = (point: ScreenPoint): void => {
     overlay.moveTo(point).catch(logFailure);
   };
@@ -96,13 +99,32 @@ const start = async (): Promise<void> => {
     return { x, y };
   };
 
+  const describeMonitors = (): string =>
+    `${layout.displays
+      .map(({ id, bounds: b, refreshRateHz, scaleFactor }) => {
+        const area = `${String(b.width)}×${String(b.height)}+${String(b.x)}+${String(b.y)}`;
+        return `${id} ${area} ${String(Math.round(refreshRateHz))} Hz ${String(scaleFactor)}×`;
+      })
+      .join(', ')}; principal: ${layout.primary.id}`;
+  const describe = ({ x, y }: Point): string => `(${String(x)}, ${String(y)})`;
   displays.onChange(() => {
     layout = displays.current();
-    keepVisible.execute().catch(logFailure);
+    console.log(`[kobi] monitores mudaram: ${describeMonitors()}`);
+    topLeft()
+      .then(async (before) => {
+        await keepVisible.execute();
+        console.log(
+          `[kobi] depois da mudança, janela em ${describe(await topLeft())} (antes ${describe(before)})`,
+        );
+      })
+      .catch(logFailure);
   });
 
   ipcMain.on(CHANNELS.setSilhouette, (_, silhouette: Region) => {
     overlay.reportSilhouette(silhouette);
+  });
+  ipcMain.on(CHANNELS.setDiagnosticsArea, (_, area: Region | undefined) => {
+    overlay.revealArea(area ?? undefined);
   });
   ipcMain.on(CHANNELS.setInteractiveRegion, (_, regions: Region[]) => {
     overlay.setInteractiveRegion(regions).catch(logFailure);
@@ -153,11 +175,12 @@ const start = async (): Promise<void> => {
         });
       }
       const velocity = ended?.release.velocityAt(performance.now()) ?? { x: 0, y: 0 };
-      if (velocity.x === 0 && velocity.y === 0) {
-        await keepVisible.execute();
-        return undefined;
-      }
-      const glide = await planGlide.execute(velocity);
+      const at = await topLeft();
+      console.log(
+        `[kobi] soltou em (${String(at.x)}, ${String(at.y)}), velocidade (${velocity.x.toFixed(0)}, ${velocity.y.toFixed(0)}) px/s`,
+      );
+      const glide = await releaseKobi.execute(velocity);
+      if (!glide) return undefined;
       const step = 1 / 120;
       const points: ScreenPoint[] = [];
       for (let t = 0; t < glide.duration; t += step) points.push(glide.positionAt(t));
@@ -204,16 +227,16 @@ const start = async (): Promise<void> => {
       },
     });
 
-  await window.loadFile(
-    path.join(__dirname, 'renderer', 'index.html'),
-    bench ? { query: { bench: '1' } } : undefined,
-  );
+  await window.loadFile(path.join(__dirname, 'renderer', 'index.html'), {
+    query: {
+      ...(bench ? { bench: '1' } : {}),
+      ...(process.argv.includes(DIAGNOSTICS_SWITCH) ? { diagnostics: '1' } : {}),
+    },
+  });
   await new PlaceKobiOnStartup(overlay, displays).execute();
   await overlay.show();
   console.log(`[kobi] overlay: ${platform.name}`);
-  console.log(
-    `[kobi] monitores: ${layout.displays.map((d) => `${d.id} ${String(Math.round(d.refreshRateHz))} Hz`).join(', ')}; principal: ${layout.primary.id}`,
-  );
+  console.log(`[kobi] monitores: ${describeMonitors()}`);
 };
 
 app.on('window-all-closed', () => {

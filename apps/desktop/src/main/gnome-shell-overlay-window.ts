@@ -5,10 +5,16 @@ import type { OverlayExtension } from './overlay-extension.js';
 import type { PlatformOverlay } from './platform-overlay.js';
 import { placeSilhouette, toPixel } from './window-geometry.js';
 
-export interface StartupTiming {
+export interface GnomeShellOverlayOptions {
   /** Intervalo entre as consultas enquanto a janela não aparece para o compositor. */
   readonly pollMs?: number;
   readonly timeoutMs?: number;
+  /**
+   * A extensão entrega o mouse à janela de trás fora do Kobi (versão 3). Sem isso, o app
+   * alterna `setIgnoreMouseEvents`, que o Electron só aplica quando o ponteiro sai da
+   * janela inteira (medido no spike).
+   */
+  readonly compositorRoutesPointer?: boolean;
 }
 
 interface Waiter {
@@ -20,9 +26,9 @@ interface Waiter {
  * Estratégia B do spike (spec 0002): Electron nativo no Wayland. Só o compositor sabe
  * onde a janela está e pode movê-la, então tudo passa pela extensão GNOME do Kobi.
  *
- * O clique atravessa com `setIgnoreMouseEvents`, ligado e desligado conforme a extensão
- * avisa que o ponteiro entrou ou saiu do Kobi: no Wayland o Electron não aplica `setShape`
- * como região de entrada (medido no spike).
+ * O clique atravessa fora do Kobi: no Wayland o Electron não aplica `setShape` como
+ * região de entrada (medido no spike). A extensão (versão 3) decide no compositor quem
+ * recebe o mouse; com versões anteriores, o app alterna `setIgnoreMouseEvents`.
  */
 export class GnomeShellOverlayWindow implements PlatformOverlay {
   private silhouetteOffset: RectProps | undefined;
@@ -39,8 +45,9 @@ export class GnomeShellOverlayWindow implements PlatformOverlay {
   constructor(
     private readonly window: BrowserWindow,
     private readonly extension: OverlayExtension,
-    private readonly timing: StartupTiming = {},
+    private readonly options: GnomeShellOverlayOptions = {},
   ) {
+    if (options.compositorRoutesPointer) return;
     extension.onPointerInside((inside) => {
       this.pointerInside = inside;
       this.applyMouse();
@@ -84,7 +91,7 @@ export class GnomeShellOverlayWindow implements PlatformOverlay {
   /** Mostra a janela, espera o compositor conhecê-la e aplica a posição guardada. */
   async show(): Promise<void> {
     this.window.showInactive();
-    const { pollMs = 16, timeoutMs = 3000 } = this.timing;
+    const { pollMs = 16, timeoutMs = 3000 } = this.options;
     for (let waited = 0; !(await this.extension.frame()); waited += pollMs) {
       if (waited >= timeoutMs) throw new Error('Kobi window never appeared to the compositor');
       await new Promise((resolve) => setTimeout(resolve, pollMs));
@@ -100,6 +107,11 @@ export class GnomeShellOverlayWindow implements PlatformOverlay {
   holdPointer(held: boolean): void {
     this.held = held;
     this.applyMouse();
+  }
+
+  /** No Wayland a região de entrada é separada do desenho: a janela já aparece inteira. */
+  revealArea(): void {
+    // Nada a fazer.
   }
 
   private async send(): Promise<void> {

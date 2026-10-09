@@ -13,3 +13,11 @@ export const pointerInRegions = (frame, regions, [x, y]) =>
       y >= frame.y + ry &&
       y < frame.y + ry + height,
   );
+
+/**
+ * Se a superfície do Kobi deve receber o mouse: só sobre o corpo dele. Com um botão
+ * pressionado nada muda: um arraste que começou no Kobi não se perde ao sair dele, e
+ * um arraste de outra janela que passa por cima dele não é capturado.
+ */
+export const receivesPointer = (inside, buttonPressed, receiving) =>
+  buttonPressed ? receiving : inside;

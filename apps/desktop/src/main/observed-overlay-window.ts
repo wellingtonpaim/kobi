@@ -40,4 +40,8 @@ export class ObservedOverlayWindow implements PlatformOverlay {
   holdPointer(held: boolean): void {
     this.inner.holdPointer(held);
   }
+
+  revealArea(area: RectProps | undefined): void {
+    this.inner.revealArea(area);
+  }
 }

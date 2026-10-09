@@ -14,6 +14,8 @@ export class X11OverlayWindow implements PlatformOverlay {
   /** Região interativa mais recente, reaplicada quando o usuário solta o Kobi. */
   private region: readonly RectProps[] | undefined;
   private held = false;
+  /** Área que aparece além do Kobi: a forma X11 recorta o desenho, não só o mouse. */
+  private revealed: RectProps | undefined;
 
   constructor(private readonly window: BrowserWindow) {}
 
@@ -64,10 +66,16 @@ export class X11OverlayWindow implements PlatformOverlay {
     return Promise.resolve();
   }
 
+  revealArea(area: RectProps | undefined): void {
+    this.revealed = area;
+    if (!this.held) this.applyShape(this.region);
+  }
+
   private applyShape(regions: readonly RectProps[] | undefined): void {
     if (!regions) return;
+    const shown = this.revealed ? [...regions, this.revealed] : regions;
     this.window.setShape(
-      regions.map((r) => ({
+      shown.map((r) => ({
         x: toPixel(r.x),
         y: toPixel(r.y),
         width: toPixel(r.width),

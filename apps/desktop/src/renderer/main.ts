@@ -4,6 +4,7 @@ import { Flight, type Point } from '@kobi/domain';
 import type { CurrentDisplay, KobiBridge } from '../shared/api.js';
 import { DragGesture } from './drag-gesture.js';
 import { FrameStats } from './frame-stats.js';
+import { boundingBox, type Region } from './hit-region.js';
 import { HitSampler } from './hit-sampler.js';
 import { sampledTrajectory, type Trajectory } from './trajectory.js';
 
@@ -32,6 +33,16 @@ const fit = (): void => {
 fit();
 window.addEventListener('resize', fit);
 
+/** O que deve caber na tela: o Kobi e, aberto, o painel de diagnóstico (para ser lido). */
+let solidArea: Region | undefined;
+let diagnosticsRegion: Region | undefined;
+const reportSilhouette = (): void => {
+  if (!solidArea) return;
+  window.kobi.setSilhouette(
+    diagnosticsRegion ? boundingBox(solidArea, diagnosticsRegion) : solidArea,
+  );
+};
+
 // Clique atravessa fora do Kobi (só a área visível dele recebe o mouse), e o processo
 // principal sabe onde o Kobi é sólido, para ele chegar até a borda real das telas.
 const hitSampler = new HitSampler(
@@ -41,7 +52,8 @@ const hitSampler = new HitSampler(
       window.kobi.setInteractiveRegion(regions);
     },
     silhouette: (silhouette) => {
-      window.kobi.setSilhouette(silhouette);
+      solidArea = silhouette;
+      reportSilhouette();
     },
   },
   (error) => {
@@ -127,8 +139,28 @@ window.kobi.onDisplayChanged((current) => {
   crossed ||= display !== undefined;
   display = current;
 });
+/** Área do painel já informada; no X11 a forma da janela recorta o desenho e precisa incluí-lo. */
+let diagnosticsArea = 'null';
+const reportDiagnosticsArea = (): void => {
+  const area =
+    diagnostics.style.display === 'block'
+      ? {
+          x: diagnostics.offsetLeft,
+          y: diagnostics.offsetTop,
+          width: diagnostics.offsetWidth,
+          height: diagnostics.offsetHeight,
+        }
+      : undefined;
+  const key = JSON.stringify(area ?? null);
+  if (key === diagnosticsArea) return;
+  diagnosticsArea = key;
+  diagnosticsRegion = area;
+  window.kobi.setDiagnosticsArea(area);
+  reportSilhouette();
+};
 window.kobi.onToggleDiagnostics(() => {
   diagnostics.style.display = diagnostics.style.display === 'block' ? 'none' : 'block';
+  reportDiagnosticsArea();
 });
 
 /** Velocidade da janela na tela, suavizada: o Kobi vira e inclina em qualquer deslocamento. */
@@ -139,6 +171,10 @@ const frameStats = new FrameStats();
 let statsSince = performance.now();
 /** Modo de medição (spec 0002): o resumo de cada segundo vai para o stdout do app. */
 const bench = new URLSearchParams(location.search).has('bench');
+if (new URLSearchParams(location.search).has('diagnostics')) {
+  diagnostics.style.display = 'block';
+  reportDiagnosticsArea();
+}
 
 const loop = (nowMs: number): void => {
   const now = nowMs / 1000;
@@ -176,6 +212,7 @@ const loop = (nowMs: number): void => {
       `intervalo p50 ${ms(stats.interval.p50)} p95 ${ms(stats.interval.p95)} máx ${ms(stats.interval.max)} ms\n` +
       `render p50 ${ms(stats.render.p50)} p95 ${ms(stats.render.p95)} p99 ${ms(stats.render.p99)} ms\n` +
       monitor;
+    reportDiagnosticsArea();
     if (bench)
       console.log(
         `[kobi-bench] ${JSON.stringify({ ...stats, display, position: windowPosition, crossed, moving: !!motion })}`,

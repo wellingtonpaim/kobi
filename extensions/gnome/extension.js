@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Kobi Overlay: no Wayland, só o compositor posiciona janelas e as mantém acima.
 // Esta extensão faz isso pela janela do Kobi, e apenas por ela (spec 0002, estratégia B).
+import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { currentRefreshRates } from './monitors.js';
-import { pointerInRegions } from './region.js';
+import { pointerInRegions, receivesPointer } from './region.js';
 
 Gio._promisify(Gio.DBusConnection.prototype, 'call');
 
@@ -32,8 +33,9 @@ const INTERFACE = `
     <method name="GetPointer">
       <arg type="(ii)" name="pointer" direction="out"/>
     </method>
-    <!-- Áreas da janela (relativas a ela) onde o Kobi recebe o mouse. A partir daí,
-         PointerInside avisa quem chamou sempre que o ponteiro entra ou sai delas. -->
+    <!-- Áreas da janela (relativas a ela) onde o Kobi recebe o mouse. A partir daí, a
+         extensão entrega o mouse à janela de trás fora delas (versão 3) e PointerInside
+         avisa quem chamou sempre que o ponteiro entra ou sai delas. -->
     <method name="SetInteractiveRegion">
       <arg type="a(iiii)" name="regions" direction="in"/>
       <arg type="b" name="found" direction="out"/>
@@ -52,12 +54,36 @@ const INTERFACE = `
     <property name="Version" type="u" access="read"/>
   </interface>
 </node>`;
-const VERSION = 2;
+const VERSION = 3;
 
 /** app_id da janela do Kobi no Wayland (vem do `desktopName` do app). */
 const KOBI_APP_ID = 'io.github.wellingtonpaim.Kobi';
 
 const isKobi = (window) => window.get_wm_class() === KOBI_APP_ID;
+
+const BUTTONS =
+  Clutter.ModifierType.BUTTON1_MASK |
+  Clutter.ModifierType.BUTTON2_MASK |
+  Clutter.ModifierType.BUTTON3_MASK;
+
+/**
+ * Liga ou desliga o mouse nas superfícies Wayland da janela: o compositor entrega o
+ * ponteiro ao ator reativo que estiver embaixo dele, então, fora do corpo do Kobi, o
+ * clique vai direto para a janela de trás.
+ */
+const setReceivesPointer = (window, receives) => {
+  const walk = (actor) => {
+    if (actor.constructor.$gtype.name.includes('SurfaceActor')) actor.reactive = receives;
+    for (const child of actor.get_children()) walk(child);
+  };
+  const actor = window.get_compositor_private();
+  if (!actor) return;
+  walk(actor);
+  // O Clutter guarda a área em volta do ponteiro onde a escolha de quem o recebe não
+  // muda, e não a refaz por mudar a reatividade: sem isso, a troca só valeria quando o
+  // ponteiro saísse da janela inteira (medido no spike). Um relayout invalida esse cache.
+  actor.queue_relayout();
+};
 
 /**
  * Já mostrada e posicionada pelo compositor (mesmo com a Visão geral aberta). Antes
@@ -208,6 +234,7 @@ export default class KobiOverlayExtension extends Extension {
       regions: [],
       // Desconhecido: a primeira conta sempre avisa o app, que começa capturando o mouse.
       inside: null,
+      receiving: true,
       unmanagingId: window.connect('unmanaging', () => this._stopListening()),
     };
     this._cursorId = global.backend
@@ -217,6 +244,7 @@ export default class KobiOverlayExtension extends Extension {
 
   _stopListening() {
     if (!this._listener) return;
+    setReceivesPointer(this._listener.window, true);
     global.backend.get_cursor_tracker().disconnect(this._cursorId);
     this._listener.window.disconnect(this._listener.unmanagingId);
     this._listener = null;
@@ -226,11 +254,13 @@ export default class KobiOverlayExtension extends Extension {
   _updatePointer() {
     const listener = this._listener;
     if (!listener) return;
-    const inside = pointerInRegions(
-      listener.window.get_frame_rect(),
-      listener.regions,
-      global.get_pointer(),
-    );
+    const [x, y, modifiers] = global.get_pointer();
+    const inside = pointerInRegions(listener.window.get_frame_rect(), listener.regions, [x, y]);
+    const receiving = receivesPointer(inside, (modifiers & BUTTONS) !== 0, listener.receiving);
+    if (receiving !== listener.receiving) {
+      listener.receiving = receiving;
+      setReceivesPointer(listener.window, receiving);
+    }
     if (inside === listener.inside) return;
     listener.inside = inside;
     Gio.DBus.session.emit_signal(
@@ -259,11 +289,28 @@ export default class KobiOverlayExtension extends Extension {
     this._watches.add(stop);
   }
 
-  /** Mantém a janela do Kobi acima das outras e em todas as áreas de trabalho. */
+  /**
+   * Mantém a janela do Kobi acima das outras e em todas as áreas de trabalho. O GNOME
+   * pode desfazer isso (com áreas de trabalho só no monitor principal, a janela que
+   * volta ao principal é presa à área ativa; medido no spike): então refaz na hora.
+   */
   _claim(window) {
     if (!isKobi(window)) return false;
-    window.make_above();
-    window.stick();
+    const keep = () => {
+      if (!window.is_above()) window.make_above();
+      if (!window.is_on_all_workspaces()) window.stick();
+    };
+    keep();
+    const ids = [
+      window.connect('notify::above', keep),
+      window.connect('notify::on-all-workspaces', keep),
+    ];
+    const stop = () => {
+      for (const id of ids.splice(0)) window.disconnect(id);
+      this._watches.delete(stop);
+    };
+    ids.push(window.connect('unmanaging', stop));
+    this._watches.add(stop);
     return true;
   }
 

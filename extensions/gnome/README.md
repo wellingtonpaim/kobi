@@ -8,7 +8,7 @@ Licença **GPL-2.0-or-later** (arquivo `LICENSE` nesta pasta), separada do resto
 
 - Mantém a janela do Kobi acima das outras e em todas as áreas de trabalho.
 - Move a janela para qualquer posição, sem as restrições de janela comum. Quem garante que o Kobi não some da tela é o app (`keepOnScreen`, no domínio).
-- Informa a posição global do ponteiro e avisa quando ele entra ou sai da região interativa do Kobi, para o clique atravessar no resto da janela.
+- Faz o clique atravessar fora do corpo do Kobi: o compositor só entrega o mouse à janela dele quando o ponteiro está sobre o corpo (ou durante um arraste que começou nele). Também informa a posição global do ponteiro.
 - Informa os monitores como o GNOME os vê (monitor principal, área útil sem o painel, escala e taxa de atualização), que o Electron não conhece no Wayland, e avisa quando eles mudam.
 
 ## Privacidade e segurança
@@ -19,7 +19,7 @@ Licença **GPL-2.0-or-later** (arquivo `LICENSE` nesta pasta), separada do resto
 
 ## Interface D-Bus
 
-Nome e interface `io.github.wellingtonpaim.Kobi.Overlay`, objeto `/io/github/wellingtonpaim/Kobi/Overlay`, barramento da sessão. Métodos `MoveTo`, `GetFrame`, `GetPointer`, `SetInteractiveRegion` e `GetMonitors`, sinais `PointerInside` e `MonitorsChanged` e propriedade `Version` (1: janela e ponteiro; 2: monitores). O app usa o que a versão instalada oferece. Detalhes em `extension.js`.
+Nome e interface `io.github.wellingtonpaim.Kobi.Overlay`, objeto `/io/github/wellingtonpaim/Kobi/Overlay`, barramento da sessão. Métodos `MoveTo`, `GetFrame`, `GetPointer`, `SetInteractiveRegion` e `GetMonitors`, sinais `PointerInside` e `MonitorsChanged` e propriedade `Version` (1: janela e ponteiro; 2: monitores; 3: a extensão decide quem recebe o mouse). O app usa o que a versão instalada oferece. Detalhes em `extension.js`.
 
 ## Instalar na sua sessão
 

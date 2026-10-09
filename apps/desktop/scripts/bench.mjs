@@ -73,8 +73,11 @@ const pssMiB = (pids) =>
     return total + (match ? Number(match[1]) / 1024 : 0);
   }, 0);
 
-/** Amostra, a cada segundo, a CPU (% de um núcleo) de grupos de processos e a GPU (%). */
-const sampler = (groups) => {
+/**
+ * Amostra, a cada segundo, a CPU (% de um núcleo) de grupos de processos, a GPU (%) e,
+ * se `memoryOf` for dado, a memória (PSS, MiB) desses processos.
+ */
+const sampler = (groups, memoryOf) => {
   const last = new Map();
   const ticksOf = (pids) =>
     pids.reduce((sum, pid) => {
@@ -93,6 +96,7 @@ const sampler = (groups) => {
     const sample = { gpu: gpuBusyFile ? Number(read(gpuBusyFile)) : NaN };
     for (const [name, pids] of Object.entries(groups))
       sample[name] = (100 * ticksOf(pids())) / TICKS_PER_SECOND / elapsed;
+    if (memoryOf) sample.memory = pssMiB(memoryOf());
     return sample;
   };
 };
@@ -174,7 +178,7 @@ const measure = async (label, duration) => {
 
 console.log(`bench: Kobi aberto, aquecendo (${String(PHASES.warmup)} s)…`);
 await sleep(PHASES.warmup * 1000);
-const sample = sampler({ app: appPids, ...system });
+const sample = sampler({ app: appPids, ...system }, appPids);
 
 for (let index = 0, total = 1; index < total; index += 1) {
   const { display, of } = await visit(index);
@@ -184,14 +188,12 @@ for (let index = 0, total = 1; index < total; index += 1) {
   sample();
   await measure(`parado · monitor ${display}`, PHASES.idle);
 }
-const idleMemory = pssMiB(appPids());
 
 console.log(`bench: passeio de teste contínuo (${String(PHASES.tour)} s)…`);
 touring = true;
 requestTour();
 await measure('passeio', PHASES.tour);
 touring = false;
-const tourMemory = pssMiB(appPids());
 
 child.stdin.write('quit\n');
 await new Promise((resolve) => child.once('exit', resolve));
@@ -213,9 +215,17 @@ for (const { label, samples } of runs) {
   );
 }
 
-console.log(
-  `\nMemória do Kobi (PSS, todos os processos): parado ${f1(idleMemory)} MiB · depois do passeio ${f1(tourMemory)} MiB`,
-);
+console.log('\n### Memória do Kobi (PSS, todos os processos, MiB)\n');
+console.log('| Fase | início | fim | máximo | variação por minuto |');
+console.log('|---|---|---|---|---|');
+for (const { label, samples } of runs.slice(1)) {
+  const memory = samples.map((s) => s.memory);
+  const first = memory[0] ?? NaN;
+  const last = memory.at(-1) ?? NaN;
+  console.log(
+    `| ${label} | ${f1(first)} | ${f1(last)} | ${f1(Math.max(...memory))} | ${f1(((last - first) / memory.length) * 60)} |`,
+  );
+}
 
 console.log('\n### Fluidez (resumos de 1 s)\n');
 console.log(
