@@ -264,7 +264,7 @@ O protocolo Wayland não entrega aos apps informações que o domínio usa. Medi
 - **Taxa de atualização 0** em todos os monitores (cai em 60 Hz).
 **Resolvido com a extensão (versão 2):** `GetMonitors` devolve, por monitor, conector, geometria, área útil sem o painel, escala e principal (pelo Shell) e a taxa de atualização (pela interface D-Bus pública `org.gnome.Mutter.DisplayConfig`, cruzada pelo conector); o sinal `MonitorsChanged` avisa hotplug, escala, disposição e área útil, sem polling. No app, `GnomeShellDisplaySource` implementa a porta `DisplaySource` com esses dados (ids = conectores). Com a extensão na versão 1, o app segue com a API `screen` do Electron e avisa no log. Validado na sessão aninhada; falta conferir na sessão real.
 
-### Teste guiado na sessão real (em andamento)
+### Teste guiado na sessão real (concluído)
 O Wellington executa cada passo e conta o que viu; o Claude confere pelo log do app (`[kobi] …`). Um passo por vez, respostas simples ("ok" ou o que foi diferente).
 
 Estratégia B (Wayland + extensão), feitos em 2026-10-08:
@@ -320,10 +320,7 @@ Medições só com o notebook (`bench`, 2026-10-09; % de um núcleo, média / p9
 
 Fluidez a 60 fps nas duas: a A sem nenhum quadro perdido (intervalo máximo 18,1 ms); a B com 2 perdidos em 15 s parado e 6 em 63 s de passeio (máximo 33,4 ms). Memória ~300 MiB nas duas, estável. Os números da B são os mesmos do eDP-1 com três monitores; com um só monitor de 60 Hz as duas estratégias custam o mesmo.
 
-**Onde paramos (2026-10-09):** todos os casos da matriz feitos nas duas estratégias, com os três monitores reconectados. Próximo passo: comparar e escrever o ADR.
-
-Próximos passos do teste guiado:
-1. **Comparar** as duas estratégias e escrever o **ADR da estratégia de overlay no Linux** (em `docs/adr/`), com as tabelas, as descobertas, os casos pendentes e as consequências para as outras plataformas.
+**Conclusão (2026-10-09):** todos os casos da matriz feitos nas duas estratégias. Comparação e decisão no **ADR 0004** (`docs/adr/0004-overlay-no-linux.md`).
 
 ### Como rodar
 - App: `pnpm --filter @kobi/desktop start` (estratégia A por padrão).
