@@ -133,11 +133,11 @@ Para cada estratégia, registrar numa tabela no ADR, por caso da matriz testado:
 ## Desempenho
 Esta spec é, ela própria, a primeira medição real do orçamento de `docs/performance.md`. Os números obtidos substituem as metas iniciais onde fizer sentido, registrados no ADR.
 
-## Andamento (atualizado em 2026-10-08)
+## Andamento (atualizado em 2026-10-09)
 
 ### Feito
 - **Domínio (Presença):** `Rect`, `Display`, `DisplayLayout` (monitor sob um ponto, mais próximo, o que contém a janela, `onScreen`/`keepOnScreen` pela silhueta, passeio), `Flight` (voo, spec 0004) e `Glide` (arremesso, spec 0005). Testes cobrem a matriz de monitores (`@kobi/domain/testing`).
-- **Aplicação:** portas `OverlayWindow` (posição, silhueta, região interativa) e `DisplaySource`; casos de uso `PlaceKobiOnStartup`, `KeepKobiVisible`, `PlanGlide`.
+- **Aplicação:** portas `OverlayWindow` (posição, silhueta, região interativa) e `DisplaySource`; casos de uso `PlaceKobiOnStartup`, `KeepKobiVisible`, `ReleaseKobi`.
 - **Avatar:** v6 portado para three.js 0.186, idêntico ao protótipo (diferença média < 1/255, `packages/avatar/dev/capture.ts`); cores do corpo, giro, pêndulo e poeira (spec 0004); alça do fone com o dobro da espessura.
 - **Estratégia B (Wayland nativo + extensão GNOME) implementada**: extensão em `extensions/gnome/` (GPL-2.0-or-later, D-Bus `io.github.wellingtonpaim.Kobi.Overlay`) e adaptador `GnomeShellOverlayWindow`. Validada de ponta a ponta numa sessão GNOME 50 aninhada e headless com ponteiro virtual (`extensions/gnome/dev/interaction-test.sh`; com `KOBI_OVERLAY=x11` o mesmo roteiro testa a estratégia A no XWayland aninhado): transparência, acima e em todas as áreas de trabalho, posição inicial, clique atravessando, clique no corpo, arraste e arremesso entre monitores.
 - **Escolha da estratégia em tempo de execução:** `KOBI_OVERLAY=wayland` usa a B; se a extensão não estiver ativa, o app reabre via XWayland (estratégia A), sem falhar.
@@ -178,6 +178,11 @@ Esta spec é, ela própria, a primeira medição real do orçamento de `docs/per
 - **D-Bus é rápido o bastante:** ida e volta média de 0,43 ms (1000 `MoveTo` seguidos); os movimentos se fundem no mais recente enquanto um está a caminho, sem fila.
 - **Visão geral:** o Kobi aparece como miniatura de janela dentro da área de trabalho, não flutuando por cima (observado na sessão aninhada; confirmar na sessão real).
 - Segurança: a extensão só age sobre a janela com o app_id do Kobi **e** do mesmo processo que chamou (PID do remetente D-Bus).
+- **Hotplug:** o Mutter guarda a posição de cada janela por monitor. Ao desconectar, leva a janela ao monitor que sobra mantendo a distância da borda; ao reconectar, devolve ao lugar de antes. O resgate do app (`KeepKobiVisible`) não precisou agir no GNOME, mas segue necessário nas outras plataformas e no vão entre monitores. Ao desconectar, o GNOME também refaz a disposição (o monitor que sobra pode trocar de lado em relação à mesa) e avisa `MonitorsChanged` duas ou três vezes por evento, às vezes primeiro com a lista antiga; o app trata cada aviso como uma releitura completa, sem efeito colateral.
+
+### Correções vindas do teste guiado (valem para as duas estratégias)
+- **Solto fora da tela com o mouse ainda se mexendo, o Kobi ficava lá** (achado do Wellington, 2026-10-09: arrastando devagar para além do topo, às vezes sobrava só um pedaço visível). O deslizamento não começa fora da tela, e o resgate só era chamado com velocidade exatamente zero; o arraste lento deixa uma velocidade residual (−20 a −150 px/s no log). Agora o caso de uso `ReleaseKobi` decide: desliza se puder, senão (parado, lento demais ou fora da tela) resgata.
+- **Encostado na borda, uma fatia do fone e do braço saía da tela** (mesmo teste). A silhueta era a pose daquele instante, e a flutuação parada a varia até 48 px (o balanço lateral tem ciclo de ~14 s). Agora a silhueta informada é o envelope das poses paradas dos últimos 15 s (a inclinação em movimento conta só enquanto dura). Com o painel de diagnóstico aberto, ele também entra na área que deve caber na tela.
 
 ### Medições da estratégia A (2026-10-07)
 `pnpm --filter @kobi/desktop bench` (ambiente de referência, escala 1.0, app sem foco). CPU em % de um núcleo (média / p95 por segundo); a máquina tem 16 threads. GPU pelo `gpu_busy_percent` da Radeon integrada.
@@ -287,6 +292,9 @@ Estratégia A (XWayland), mesmos passos, feitos em 2026-10-08:
 Casos da matriz, feitos em 2026-10-08:
 | Caso | A (XWayland) | B (Wayland + extensão) |
 |---|---|---|
+| Hotplug do HDMI (Kobi no monitor da direita) | (a fazer) | ok (2026-10-09): ao desconectar, o próprio GNOME leva o Kobi (e as outras janelas) ao notebook, mantendo a distância da borda esquerda; ao reconectar, devolve ao lugar de antes no monitor da direita, mesmo depois de arrastado no notebook. Sempre por cima e arrastável; o resgate do app não precisou agir (posição antes = depois) |
+| Hotplug do DisplayLink (Kobi no monitor da esquerda) | (a fazer) | ok (2026-10-09): igual ao HDMI; o DisplayLink demora mais a voltar |
+| Só o notebook (externos desconectados) | (a fazer) | ok (2026-10-09) depois de duas correções (ver descobertas): abre no canto inferior direito, arraste e arremessos ok, volta inteiro de todas as bordas |
 | Escala fracionária (eDP-1 a 125%, externos a 100%) | **encolhe** à metade em todos os monitores e **salta para o centro de um monitor externo** a cada mudança de escala (ver descobertas da A); custo quase dobra nos externos (tabela abaixo) | ok: tamanho certo e nítido em cada monitor (1,25× e 1×), arraste colado na travessia entre escalas diferentes; ao mudar a escala com o app aberto, continua no mesmo lugar e o tamanho acompanha a escala |
 
 Medições a 125% (`bench`, % de um núcleo, média; GPU em %):
@@ -300,10 +308,12 @@ Medições a 125% (`bench`, % de um núcleo, média; GPU em %):
 
 Fluidez: as duas mantêm a taxa cheia de cada monitor; a A perde 3 a 5 quadros a cada 15 s (intervalo máximo até 36,6 ms), a B até 2 (máximo 33,4 ms). Memória: ~300 MiB nas duas. Na B os números são os mesmos de 100%; na A o custo quase dobra nos externos **com o Kobi encolhido à metade** (o mesmo número de pixels de antes); no tamanho certo seriam 4× mais pixels.
 
-**Onde paramos (2026-10-08, fim do dia):** escala do eDP-1 de volta a 100% com a B aberta (ok). A extensão instalada e carregada é a do commit `99d22cc`. O GNOME realinhou os monitores depois das mudanças de escala: agora os externos ficam em y = 0 e o eDP-1 em y = 120 (antes era o contrário); não atrapalha. Próximo passo: **hotplug na B**, abrindo com o log (comando de "Como rodar", na estratégia B): Kobi num monitor externo, desconectar o cabo desse monitor com o app aberto, conferir se ele reaparece no monitor mais próximo, reconectar; depois o mesmo com o DisplayLink e, por fim, só o notebook (`bench` sem os externos). Em seguida, os mesmos casos na A.
+Medições só com o notebook, estratégia B (`bench`, 2026-10-09): Kobi parado 23,1 / 25,8 % de um núcleo (média / p95), passeio 22,8 / 24,8; gnome-shell 8,6 (parado) e 8,7 (passeio), contra 1,8 sem o Kobi; GPU 28,4 e 26,7 %. Fluidez: 60 fps, 2 quadros perdidos em 15 s parado e 6 em 63 s de passeio (intervalo máximo 33,4 ms). Memória ~308 MiB, estável. Os mesmos números do eDP-1 com três monitores.
+
+**Onde paramos (2026-10-09):** casos de hotplug e só o notebook feitos na B. Os três monitores estão desconectados (só o notebook). Próximo passo: **os mesmos casos na A** (só o notebook, com `KOBI_OVERLAY=x11 pnpm --filter @kobi/desktop bench` e observação; depois reconectar e fazer o hotplug do HDMI e do DisplayLink).
 
 Próximos passos do teste guiado:
-1. **Casos da matriz** restantes (em cada um, `bench` + observação): só o notebook (desconectar os externos), hotplug (desconectar e reconectar o monitor onde o Kobi está, com o app aberto; o log mostra `[kobi] monitores mudaram` e a posição depois do resgate).
+1. **Casos da matriz** restantes na A (em cada um, `bench` + observação): só o notebook, hotplug (desconectar e reconectar o monitor onde o Kobi está, com o app aberto; o log mostra `[kobi] monitores mudaram` e a posição depois do resgate).
 2. **Comparar** as duas estratégias e escrever o **ADR da estratégia de overlay no Linux** (em `docs/adr/`), com as tabelas, as descobertas, os casos pendentes e as consequências para as outras plataformas.
 
 ### Como rodar
