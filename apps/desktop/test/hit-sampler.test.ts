@@ -7,18 +7,19 @@ import { HitSampler } from '../src/renderer/hit-sampler.js';
 const SIZE = 40;
 const CELLS = SIZE / 4;
 
-/** Amostra com um bloco opaco de 2×2 células no canto superior esquerdo. */
-const kobiInCorner = (): Uint8ClampedArray => {
+/** Amostra com um bloco opaco de 2×2 células a partir da célula (x, y). */
+const kobiAt = (left: number, top: number): Uint8ClampedArray => {
   const data = new Uint8ClampedArray(CELLS * CELLS * 4);
   for (const [x, y] of [
-    [0, 0],
-    [1, 0],
-    [0, 1],
-    [1, 1],
+    [left, top],
+    [left + 1, top],
+    [left, top + 1],
+    [left + 1, top + 1],
   ] as const)
     data[(y * CELLS + x) * 4 + 3] = 255;
   return data;
 };
+const kobiInCorner = (): Uint8ClampedArray => kobiAt(0, 0);
 
 /** Fonte de leitura controlada pelo teste: cada leitura só termina quando o teste manda. */
 const fakeSource = () => {
@@ -136,6 +137,52 @@ describe('HitSampler', () => {
 
     expect(regions).toHaveLength(1);
     expect(silhouettes).toHaveLength(1);
+  });
+
+  it('keeps room for the whole idle motion: the silhouette covers the recent poses', async () => {
+    const { sampler, reads, silhouettes } = setup();
+
+    sampler.update(0, SIZE, SIZE, true);
+    reads.at(-1)?.finish(kobiInCorner());
+    await flush();
+    sampler.update(100, SIZE, SIZE, true);
+    reads.at(-1)?.finish(kobiAt(3, 1));
+    await flush();
+
+    expect(silhouettes.at(-1)).toEqual({ x: 0, y: 0, width: 20, height: 12 });
+  });
+
+  it('forgets poses older than a full idle cycle (15 s)', async () => {
+    const { sampler, reads, silhouettes } = setup();
+
+    sampler.update(0, SIZE, SIZE, true);
+    reads.at(-1)?.finish(kobiInCorner());
+    await flush();
+    sampler.update(15_100, SIZE, SIZE, true);
+    reads.at(-1)?.finish(kobiAt(3, 1));
+    await flush();
+
+    expect(silhouettes.at(-1)).toEqual({ x: 12, y: 4, width: 8, height: 8 });
+  });
+
+  it('counts the pose while moving, but does not remember the lean once at rest', async () => {
+    const { sampler, reads, silhouettes } = setup();
+
+    for (const [at, settled, pose] of [
+      [0, true, kobiInCorner()],
+      [100, false, kobiAt(3, 1)],
+      [200, true, kobiInCorner()],
+    ] as const) {
+      sampler.update(at, SIZE, SIZE, settled);
+      reads.at(-1)?.finish(pose);
+      await flush();
+    }
+
+    expect(silhouettes).toEqual([
+      { x: 0, y: 0, width: 8, height: 8 },
+      { x: 0, y: 0, width: 20, height: 12 },
+      { x: 0, y: 0, width: 8, height: 8 },
+    ]);
   });
 
   it('reports a failed reading without throwing', async () => {

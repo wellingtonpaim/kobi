@@ -106,3 +106,13 @@ export const opaqueBounds = (
     height: (bottom - top + 1) * cellSize,
   };
 };
+
+/** Menor retângulo que cobre todas as áreas. */
+export const boundingBox = (first: Region, ...rest: readonly Region[]): Region => {
+  const all = [first, ...rest];
+  const left = Math.min(...all.map((r) => r.x));
+  const top = Math.min(...all.map((r) => r.y));
+  const right = Math.max(...all.map((r) => r.x + r.width));
+  const bottom = Math.max(...all.map((r) => r.y + r.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+};

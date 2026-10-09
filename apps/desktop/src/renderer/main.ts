@@ -4,6 +4,7 @@ import { Flight, type Point } from '@kobi/domain';
 import type { CurrentDisplay, KobiBridge } from '../shared/api.js';
 import { DragGesture } from './drag-gesture.js';
 import { FrameStats } from './frame-stats.js';
+import { boundingBox, type Region } from './hit-region.js';
 import { HitSampler } from './hit-sampler.js';
 import { sampledTrajectory, type Trajectory } from './trajectory.js';
 
@@ -32,6 +33,16 @@ const fit = (): void => {
 fit();
 window.addEventListener('resize', fit);
 
+/** O que deve caber na tela: o Kobi e, aberto, o painel de diagnóstico (para ser lido). */
+let solidArea: Region | undefined;
+let diagnosticsRegion: Region | undefined;
+const reportSilhouette = (): void => {
+  if (!solidArea) return;
+  window.kobi.setSilhouette(
+    diagnosticsRegion ? boundingBox(solidArea, diagnosticsRegion) : solidArea,
+  );
+};
+
 // Clique atravessa fora do Kobi (só a área visível dele recebe o mouse), e o processo
 // principal sabe onde o Kobi é sólido, para ele chegar até a borda real das telas.
 const hitSampler = new HitSampler(
@@ -41,7 +52,8 @@ const hitSampler = new HitSampler(
       window.kobi.setInteractiveRegion(regions);
     },
     silhouette: (silhouette) => {
-      window.kobi.setSilhouette(silhouette);
+      solidArea = silhouette;
+      reportSilhouette();
     },
   },
   (error) => {
@@ -142,7 +154,9 @@ const reportDiagnosticsArea = (): void => {
   const key = JSON.stringify(area ?? null);
   if (key === diagnosticsArea) return;
   diagnosticsArea = key;
+  diagnosticsRegion = area;
   window.kobi.setDiagnosticsArea(area);
+  reportSilhouette();
 };
 window.kobi.onToggleDiagnostics(() => {
   diagnostics.style.display = diagnostics.style.display === 'block' ? 'none' : 'block';

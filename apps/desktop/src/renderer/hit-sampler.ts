@@ -1,4 +1,4 @@
-import { hitRegion, opaqueBounds, type Region } from './hit-region.js';
+import { boundingBox, hitRegion, opaqueBounds, type Region } from './hit-region.js';
 
 const CELL_SIZE = 4;
 const ALPHA_THRESHOLD = 8;
@@ -7,6 +7,11 @@ const SOLID_THRESHOLD = 128;
 /** 3 células (12 px) de folga: cobre o que os braços e a flutuação andam entre duas amostras. */
 const MARGIN = 3;
 const INTERVAL_MS = 100;
+/**
+ * Um ciclo inteiro da flutuação parada (o balanço lateral leva ~14 s): a silhueta cobre
+ * todas as poses desse tempo, para a animação não levar o Kobi além da borda da tela.
+ */
+const ENVELOPE_MS = 15_000;
 
 /** Imagem RGBA reduzida do quadro atual (linhas de cima para baixo), lida sem bloquear; `undefined` se ocupada. */
 export type CoverageSource = (
@@ -17,7 +22,7 @@ export type CoverageSource = (
 export interface SampleListeners {
   /** Áreas da janela que recebem o mouse. */
   readonly region: (regions: readonly Region[]) => void;
-  /** Onde o Kobi é sólido dentro da janela; é o que deve caber na tela. */
+  /** Onde o Kobi é sólido dentro da janela, somando as poses recentes; é o que deve caber na tela. */
   readonly silhouette: (silhouette: Region) => void;
 }
 
@@ -31,6 +36,8 @@ export class HitSampler {
   private lastSampleAt = Number.NEGATIVE_INFINITY;
   private lastRegion = '';
   private lastSilhouette = '';
+  /** Silhuetas parado nos últimos `ENVELOPE_MS`, da mais antiga para a mais recente. */
+  private poses: { readonly at: number; readonly solid: Region }[] = [];
 
   constructor(
     private readonly source: CoverageSource,
@@ -55,17 +62,23 @@ export class HitSampler {
     this.lastSampleAt = nowMs;
     reading
       .then((data) => {
-        this.analyze(data, width, height);
+        this.analyze(data, width, height, nowMs, settled);
       })
       .catch(this.onError);
   }
 
-  private analyze(data: Uint8ClampedArray, width: number, height: number): void {
+  private analyze(
+    data: Uint8ClampedArray,
+    width: number,
+    height: number,
+    sampledAt: number,
+    settled: boolean,
+  ): void {
     const solid = opaqueBounds(data, width, height, {
       cellSize: CELL_SIZE,
       alphaThreshold: SOLID_THRESHOLD,
     });
-    if (solid) this.publishSilhouette(solid);
+    if (solid) this.publishSilhouette(this.envelope(solid, sampledAt, settled));
     if (this.settledNow) {
       this.publishRegion(
         hitRegion(data, width, height, {
@@ -75,6 +88,16 @@ export class HitSampler {
         }),
       );
     }
+  }
+
+  /**
+   * A pose atual somada às poses paradas recentes. A inclinação em movimento conta só
+   * enquanto dura: lembrada, deixaria o Kobi longe da borda depois de parar.
+   */
+  private envelope(solid: Region, at: number, settled: boolean): Region {
+    this.poses = this.poses.filter((pose) => at - pose.at < ENVELOPE_MS);
+    if (settled) this.poses.push({ at, solid });
+    return boundingBox(solid, ...this.poses.map((pose) => pose.solid));
   }
 
   private publishRegion(regions: readonly Region[]): void {

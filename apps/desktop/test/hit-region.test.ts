@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { hitRegion, opaqueBounds } from '../src/renderer/hit-region.js';
+import { boundingBox, hitRegion, opaqueBounds } from '../src/renderer/hit-region.js';
 
 /** Monta uma máscara RGBA a partir de linhas de texto: '#' é pixel visível, '.' transparente. */
 const mask = (...rows: string[]): { data: Uint8ClampedArray; width: number; height: number } => {
@@ -78,5 +78,16 @@ describe('opaqueBounds', () => {
     const { data, width, height } = mask('...');
 
     expect(opaqueBounds(data, width, height, opts)).toBeUndefined();
+  });
+});
+
+describe('boundingBox', () => {
+  it('covers every area, even apart from each other', () => {
+    expect(
+      boundingBox(
+        { x: 80, y: 40, width: 140, height: 300 },
+        { x: 8, y: 330, width: 280, height: 64 },
+      ),
+    ).toEqual({ x: 8, y: 40, width: 280, height: 354 });
   });
 });
